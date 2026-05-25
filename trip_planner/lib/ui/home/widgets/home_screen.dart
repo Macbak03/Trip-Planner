@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -365,7 +366,7 @@ class _Sheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const _SuggestedCountriesGrid(),
+              _SuggestedCountriesGrid(viewModel: viewModel),
             ],
           ),
         ),
@@ -492,11 +493,16 @@ class _TripRow extends StatelessWidget {
 }
 
 class _SuggestedCountriesGrid extends StatelessWidget {
-  const _SuggestedCountriesGrid();
+  const _SuggestedCountriesGrid({required this.viewModel});
+
+  final HomeViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
-    const items = ['Place 1', 'Place 1', 'Place 1', 'Place 1'];
+    final countries = viewModel.suggestedCountries;
+    final isLoading =
+        countries.isEmpty && viewModel.loadSuggestedCountries.running;
+    final itemCount = countries.isEmpty ? 8 : countries.length;
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -506,31 +512,67 @@ class _SuggestedCountriesGrid extends StatelessWidget {
         crossAxisSpacing: 16,
         childAspectRatio: 1.5,
       ),
-      itemCount: items.length,
+      itemCount: itemCount,
       itemBuilder: (context, index) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: AppColors.separator,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              items[index],
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        if (index >= countries.length) {
+          return _SuggestedCountryCard(
+            label: isLoading ? '' : 'Place ${index + 1}',
+            photoUrl: null,
+          );
+        }
+        final place = countries[index];
+        return _SuggestedCountryCard(
+          label: place.displayName,
+          photoUrl: viewModel.suggestedCountryPhotoUrl(place),
         );
       },
+    );
+  }
+}
+
+class _SuggestedCountryCard extends StatelessWidget {
+  const _SuggestedCountryCard({required this.label, required this.photoUrl});
+
+  final String label;
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              color: AppColors.separator,
+              child: (photoUrl == null || photoUrl!.isEmpty)
+                  ? const SizedBox.expand()
+                  : CachedNetworkImage(
+                      imageUrl: photoUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      placeholder: (_, _) =>
+                          const ColoredBox(color: AppColors.separator),
+                      errorWidget: (_, _, _) =>
+                          const ColoredBox(color: AppColors.separator),
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }

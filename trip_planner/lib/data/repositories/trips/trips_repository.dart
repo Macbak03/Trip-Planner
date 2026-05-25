@@ -74,6 +74,14 @@ class TripsRepository {
     }
   }
 
+  /// Aggregates `types` over places attached to the user's trips and returns
+  /// the top-N most frequent types. The `trips/{id}/places` sub-collection will 
+  /// be introduced later, so until then this returns an empty list and the
+  /// Home screen falls back to a static popular-countries list.
+  Future<List<String>> getUserTopPlaceTypes({int limit = 5}) async {
+    return const <String>[];
+  }
+
   Future<Result<void>> deleteTrip(String id) async {
     try {
       await _service.deleteTrip(id);

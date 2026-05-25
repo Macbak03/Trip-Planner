@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:trip_planner/data/repositories/auth/auth_notifier.dart';
 import 'package:trip_planner/data/repositories/auth/auth_repository.dart';
+import 'package:trip_planner/data/repositories/places/places_repository.dart';
 import 'package:trip_planner/data/repositories/trips/trips_repository.dart';
 import 'package:trip_planner/data/services/firebase/auth/firebase_auth_service.dart';
 import 'package:trip_planner/data/services/firestore/trips/firestore_trips_service.dart';
+import 'package:trip_planner/data/services/google/places/google_places_service.dart';
 
 List<SingleChildWidget> get providers => [
   // SERVICES
@@ -24,6 +26,10 @@ List<SingleChildWidget> get providers => [
     create: (context) =>
         FirestoreTripsService(firestore: context.read<FirebaseFirestore>()),
   ),
+  Provider<GooglePlacesService>(
+    create: (_) => GooglePlacesService(),
+    dispose: (_, service) => service.dispose(),
+  ),
 
   // REPOSITORIES
   Provider<AuthRepository>(
@@ -35,6 +41,10 @@ List<SingleChildWidget> get providers => [
       firestoreTripsService: context.read<FirestoreTripsService>(),
       authRepository: context.read<AuthRepository>(),
     ),
+  ),
+  Provider<PlacesRepository>(
+    create: (context) =>
+        PlacesRepository(googlePlacesService: context.read<GooglePlacesService>()),
   ),
 
   ChangeNotifierProvider<AuthNotifier>(

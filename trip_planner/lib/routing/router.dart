@@ -43,6 +43,7 @@ GoRouter router(AuthNotifier authNotifier) => GoRouter(
         final viewModel = HomeViewModel(
           authRepository: context.read(),
           tripsRepository: context.read(),
+          placesRepository: context.read(),
         );
         return HomeScreen(viewModel: viewModel);
       },
