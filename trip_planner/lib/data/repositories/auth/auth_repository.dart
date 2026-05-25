@@ -1,5 +1,5 @@
 import 'package:logging/logging.dart';
-import 'package:trip_planner/data/services/fiebase/auth/firebase_auth_service.dart';
+import 'package:trip_planner/data/services/firebase/auth/firebase_auth_service.dart';
 import 'package:trip_planner/domain/models/auth/auth_error.dart';
 import 'package:trip_planner/domain/models/user/user.dart';
 import 'package:trip_planner/utils/result.dart';

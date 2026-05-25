@@ -35,14 +35,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.windows:
         return android;
       case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       default:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions are not supported for this platform.',
-        );
+        return android;
     }
   }
 
@@ -62,4 +57,5 @@ class DefaultFirebaseOptions {
     storageBucket: _env('FIREBASE_IOS_STORAGE_BUCKET'),
     iosBundleId: _env('FIREBASE_IOS_IOS_BUNDLE_ID'),
   );
+
 }

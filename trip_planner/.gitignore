@@ -46,6 +46,7 @@ app.*.map.json
 /android/app/google-services.json
 
 .claude
-firebase.json
+progress.md
 .env
+ios/Flutter/Env.xcconfig
 

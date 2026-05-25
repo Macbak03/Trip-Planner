@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:trip_planner/data/repositories/auth/auth_notifier.dart';
 import 'package:trip_planner/data/repositories/auth/auth_repository.dart';
-import 'package:trip_planner/data/services/fiebase/auth/firebase_auth_service.dart';
+import 'package:trip_planner/data/services/firebase/auth/firebase_auth_service.dart';
 
 List<SingleChildWidget> get providers => [
   // SERVICES
