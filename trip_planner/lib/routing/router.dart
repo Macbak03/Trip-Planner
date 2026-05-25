@@ -6,6 +6,7 @@ import 'package:trip_planner/ui/auth/view_models/auth_viewmodel.dart';
 import 'package:trip_planner/ui/auth/widgets/auth_screen.dart';
 import 'package:trip_planner/ui/home/view_models/home_viewmodel.dart';
 import 'package:trip_planner/ui/home/widgets/home_screen.dart';
+import 'package:trip_planner/ui/trip_details/widgets/trip_details_screen.dart';
 
 GoRouter router(AuthNotifier authNotifier) => GoRouter(
   initialLocation: Routes.auth,
@@ -39,8 +40,18 @@ GoRouter router(AuthNotifier authNotifier) => GoRouter(
     GoRoute(
       path: Routes.home,
       builder: (context, state) {
-        final viewModel = HomeViewModel(authRepository: context.read());
+        final viewModel = HomeViewModel(
+          authRepository: context.read(),
+          tripsRepository: context.read(),
+        );
         return HomeScreen(viewModel: viewModel);
+      },
+    ),
+    GoRoute(
+      path: Routes.tripDetails,
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return TripDetailsScreen(tripId: id);
       },
     ),
   ],

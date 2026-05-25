@@ -28,11 +28,11 @@ class AppColors {
   //static const AppColors light = AppColors();
   //static const AppColors dark = AppColors();
 
-  static const Color accent = Color(0xFFF07A20);
+  static const Color accent = Color(0xFFFF8D28);
   static const Color authCardBg = Color(0xCC5A4A42);
   static const Color authFieldBg = Color(0xFF4A3D37);
   static const Color authBg = Color(0xFF3E332D);
-  static const Color accentDisabled = Color(0x99F07A20);
+  static const Color accentDisabled = Color(0x99FF8D28);
   static const Color textPrimary = Colors.black;
   static const Color label = Color(0x993C3C43);
   static const Color labelTetriary = Color(0x4D3C3C43);
@@ -41,6 +41,12 @@ class AppColors {
   static const Color hint = Color(0xFFAEAEB2);
   static const Color textSecondary = Colors.white;
   static Color textFieldBackground = Colors.black.withValues(alpha: 0.3);
+
+  // Home sheet
+  static const Color sheetBackground = Color(0xFFF2F2F7);
+  static const Color cardBackground = Colors.white;
+  static const Color heroPillBackground = Color(0x66000000); // black @ 40%
+
 }
 
 // class AppTheme {
