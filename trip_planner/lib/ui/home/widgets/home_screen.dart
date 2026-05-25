@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:trip_planner/config/app_theme.dart';
+import 'package:trip_planner/domain/models/place/place_suggestion.dart';
 import 'package:trip_planner/domain/models/trip/trip.dart';
 import 'package:trip_planner/routing/routes.dart';
 import 'package:trip_planner/ui/core/widgets/primary_button.dart';
@@ -150,6 +151,23 @@ class _HeroForm extends StatelessWidget {
           controller: destinationController,
           onChanged: viewModel.setDestination,
         ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: viewModel.destinationSuggestions.isEmpty
+              ? const SizedBox(width: double.infinity)
+              : _DestinationSuggestionsOverlay(
+                  suggestions: viewModel.destinationSuggestions,
+                  onSelected: (s) {
+                    viewModel.selectDestinationSuggestion(s);
+                    destinationController.text = s.mainText;
+                    destinationController.selection =
+                        TextSelection.collapsed(offset: s.mainText.length);
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  },
+                ),
+        ),
         _PillField(
           icon: Icons.attach_money,
           hint: 'Budget',
@@ -197,6 +215,105 @@ class _HeroForm extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DestinationSuggestionsOverlay extends StatelessWidget {
+  const _DestinationSuggestionsOverlay({
+    required this.suggestions,
+    required this.onSelected,
+  });
+
+  static const double _overlayHeight = 175;
+
+  final List<PlaceSuggestion> suggestions;
+  final ValueChanged<PlaceSuggestion> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          height: _overlayHeight,
+          decoration: BoxDecoration(
+            color: AppColors.heroPillBackground,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            physics: const ClampingScrollPhysics(),
+            itemCount: suggestions.length,
+            separatorBuilder: (_, _) => Divider(
+              height: 1,
+              color: AppColors.textSecondary.withValues(alpha: 0.15),
+              indent: 16,
+              endIndent: 16,
+            ),
+            itemBuilder: (context, i) => _SuggestionRow(
+              suggestion: suggestions[i],
+              onTap: () => onSelected(suggestions[i]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuggestionRow extends StatelessWidget {
+  const _SuggestionRow({required this.suggestion, required this.onTap});
+
+  final PlaceSuggestion suggestion;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.place_outlined,
+              color: AppColors.textSecondary,
+              size: 16,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    suggestion.mainText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (suggestion.secondaryText.isNotEmpty)
+                    Text(
+                      suggestion.secondaryText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textSecondary.withValues(alpha: 0.75),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -335,44 +452,86 @@ class _Sheet extends StatelessWidget {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: SingleChildScrollView(
+        child: CustomScrollView(
           physics: const ClampingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            16,
-            20,
-            16,
-            20 + MediaQuery.of(context).padding.bottom,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Planned trips',
-                style: TextStyle(
-                  color: AppColors.label,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+          slivers: [
+            SliverMainAxisGroup(
+              slivers: [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: const _StickyHeaderDelegate(title: 'Planned trips'),
                 ),
-              ),
-              const SizedBox(height: 8),
-              _PlannedTripsList(viewModel: viewModel),
-              const SizedBox(height: 24),
-              const Text(
-                'Suggested countries to visit',
-                style: TextStyle(
-                  color: AppColors.label,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  sliver: SliverToBoxAdapter(
+                    child: _PlannedTripsList(viewModel: viewModel),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _SuggestedCountriesGrid(viewModel: viewModel),
-            ],
-          ),
+              ],
+            ),
+            SliverMainAxisGroup(
+              slivers: [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: const _StickyHeaderDelegate(
+                    title: 'Suggested countries to visit',
+                  ),
+                ),
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    4,
+                    16,
+                    20 + MediaQuery.of(context).padding.bottom,
+                  ),
+                  sliver: _SuggestedCountriesSliverGrid(viewModel: viewModel),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _StickyHeaderDelegate({required this.title});
+
+  final String title;
+
+  static const double _height = 48;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: AppColors.cardBackground,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: AppColors.label,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_StickyHeaderDelegate oldDelegate) =>
+      oldDelegate.title != title;
 }
 
 class _PlannedTripsList extends StatelessWidget {
@@ -422,6 +581,7 @@ class _PlannedTripsList extends StatelessWidget {
             for (var i = 0; i < trips.length; i++) ...[
               _TripRow(
                 trip: trips[i],
+                coverUrlFuture: viewModel.getTripCoverUrl(trips[i]),
                 onTap: () =>
                     context.push(Routes.tripDetailsPath(trips[i].id)),
               ),
@@ -436,9 +596,14 @@ class _PlannedTripsList extends StatelessWidget {
 }
 
 class _TripRow extends StatelessWidget {
-  const _TripRow({required this.trip, required this.onTap});
+  const _TripRow({
+    required this.trip,
+    required this.coverUrlFuture,
+    required this.onTap,
+  });
 
   final Trip trip;
+  final Future<String?> coverUrlFuture;
   final VoidCallback onTap;
 
   @override
@@ -451,14 +616,38 @@ class _TripRow extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Container(
+              child: SizedBox(
                 width: 52,
                 height: 52,
-                color: AppColors.separator,
-                child: const Icon(
-                  Icons.image_outlined,
-                  size: 22,
-                  color: AppColors.label,
+                child: FutureBuilder<String?>(
+                  future: coverUrlFuture,
+                  builder: (context, snapshot) {
+                    final url = snapshot.data;
+                    if (url == null || url.isEmpty) {
+                      return Container(
+                        color: AppColors.separator,
+                        child: const Icon(
+                          Icons.image_outlined,
+                          size: 22,
+                          color: AppColors.label,
+                        ),
+                      );
+                    }
+                    return CachedNetworkImage(
+                      imageUrl: url,
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) =>
+                          const ColoredBox(color: AppColors.separator),
+                      errorWidget: (_, _, _) => Container(
+                        color: AppColors.separator,
+                        child: const Icon(
+                          Icons.image_outlined,
+                          size: 22,
+                          color: AppColors.label,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -492,8 +681,8 @@ class _TripRow extends StatelessWidget {
   }
 }
 
-class _SuggestedCountriesGrid extends StatelessWidget {
-  const _SuggestedCountriesGrid({required this.viewModel});
+class _SuggestedCountriesSliverGrid extends StatelessWidget {
+  const _SuggestedCountriesSliverGrid({required this.viewModel});
 
   final HomeViewModel viewModel;
 
@@ -503,17 +692,14 @@ class _SuggestedCountriesGrid extends StatelessWidget {
     final isLoading =
         countries.isEmpty && viewModel.loadSuggestedCountries.running;
     final itemCount = countries.isEmpty ? 8 : countries.length;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+    return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 18,
         crossAxisSpacing: 16,
         childAspectRatio: 1.5,
       ),
-      itemCount: itemCount,
-      itemBuilder: (context, index) {
+      delegate: SliverChildBuilderDelegate((context, index) {
         if (index >= countries.length) {
           return _SuggestedCountryCard(
             label: isLoading ? '' : 'Place ${index + 1}',
@@ -525,7 +711,7 @@ class _SuggestedCountriesGrid extends StatelessWidget {
           label: place.displayName,
           photoUrl: viewModel.suggestedCountryPhotoUrl(place),
         );
-      },
+      }, childCount: itemCount),
     );
   }
 }

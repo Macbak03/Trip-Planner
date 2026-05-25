@@ -155,6 +155,51 @@ class HomeViewModel extends ChangeNotifier {
     return _placesRepository.photoUrl(place.photoRefs.first, maxWidthPx: maxWidthPx);
   }
 
+  final Map<String, Future<String?>> _tripCoverCache = {};
+
+  /// Resolves a cover photo URL for a planned trip:
+  /// uses the saved `coverImageUrl` if present, otherwise pulls the first
+  /// photo from the destination's Place (by id, or by text search as fallback).
+  /// Results are memoised per trip so the list rebuild does not re-issue calls.
+  Future<String?> getTripCoverUrl(Trip trip, {int maxWidthPx = 300}) {
+    final saved = trip.coverImageUrl;
+    if (saved != null && saved.isNotEmpty) {
+      return Future.value(saved);
+    }
+    return _tripCoverCache.putIfAbsent(
+      trip.id,
+      () => _resolveTripCoverUrl(trip, maxWidthPx),
+    );
+  }
+
+  Future<String?> _resolveTripCoverUrl(Trip trip, int maxWidthPx) async {
+    final placeId = trip.destinationPlaceId;
+    if (placeId != null && placeId.isNotEmpty) {
+      final details = await _placesRepository.getDetails(placeId);
+      if (details is Ok<Place> && details.value.photoRefs.isNotEmpty) {
+        return _placesRepository.photoUrl(
+          details.value.photoRefs.first,
+          maxWidthPx: maxWidthPx,
+        );
+      }
+    }
+    final destination = trip.destination.trim();
+    if (destination.isEmpty) return null;
+    final search = await _placesRepository.searchText(
+      destination,
+      maxResultCount: 1,
+    );
+    if (search is Ok<List<Place>> &&
+        search.value.isNotEmpty &&
+        search.value.first.photoRefs.isNotEmpty) {
+      return _placesRepository.photoUrl(
+        search.value.first.photoRefs.first,
+        maxWidthPx: maxWidthPx,
+      );
+    }
+    return null;
+  }
+
   Future<Result<String>> _startPlanning() async {
     final destination = _draft.destination.trim();
     if (destination.isEmpty) {

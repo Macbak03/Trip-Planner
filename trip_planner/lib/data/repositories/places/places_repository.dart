@@ -16,6 +16,7 @@ class PlacesRepository {
 
   final Map<String, List<PlaceSuggestion>> _autocompleteCache = {};
   final Map<String, Place> _detailsCache = {};
+  final Map<String, List<Place>> _searchTextCache = {};
   List<Place>? _suggestedCountriesCache;
 
   Future<Result<List<PlaceSuggestion>>> autocomplete(
@@ -87,6 +88,9 @@ class PlacesRepository {
     GeoCoordinates? biasLocation,
     int maxResultCount = 10,
   }) async {
+    final key = _searchTextKey(query, includedTypes, biasLocation, maxResultCount);
+    final cached = _searchTextCache[key];
+    if (cached != null) return Result.ok(cached);
     try {
       final places = await _service.searchText(
         query,
@@ -94,11 +98,24 @@ class PlacesRepository {
         biasLocation: biasLocation,
         maxResultCount: maxResultCount,
       );
+      _searchTextCache[key] = places;
       return Result.ok(places);
     } catch (e) {
       _log.warning('searchText failed: $e');
       return Result.error(Exception(e.toString()));
     }
+  }
+
+  String _searchTextKey(
+    String query,
+    List<String> types,
+    GeoCoordinates? bias,
+    int max,
+  ) {
+    final biasKey = bias == null
+        ? ''
+        : '${bias.latitude.toStringAsFixed(2)},${bias.longitude.toStringAsFixed(2)}';
+    return '${query.trim().toLowerCase()}|${types.join(",")}|$biasKey|$max';
   }
 
   /// Resolves [countryNames] to [Place] entries via `searchText`, returning the
@@ -128,6 +145,7 @@ class PlacesRepository {
   void clearCache() {
     _autocompleteCache.clear();
     _detailsCache.clear();
+    _searchTextCache.clear();
     _suggestedCountriesCache = null;
   }
 
