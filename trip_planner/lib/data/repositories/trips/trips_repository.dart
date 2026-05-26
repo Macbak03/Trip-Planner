@@ -1,7 +1,9 @@
 import 'package:logging/logging.dart';
 import 'package:trip_planner/data/repositories/auth/auth_repository.dart';
 import 'package:trip_planner/data/services/firestore/trips/firestore_trips_service.dart';
+import 'package:trip_planner/domain/models/place/place.dart';
 import 'package:trip_planner/domain/models/trip/trip.dart';
+import 'package:trip_planner/domain/models/trip/trip_place.dart';
 import 'package:trip_planner/utils/result.dart';
 
 class TripsRepository {
@@ -88,6 +90,65 @@ class TripsRepository {
       return Result.ok(null);
     } catch (e) {
       _log.warning('deleteTrip failed: $e');
+      return Result.error(Exception(e.toString()));
+    }
+  }
+
+  Stream<List<TripPlace>> streamTripPlaces(String tripId) {
+    return _service.streamTripPlaces(tripId);
+  }
+
+  Future<Result<String>> addTripPlace(
+    String tripId, {
+    required String placeId,
+    required int dayIndex,
+    required int order,
+    required String displayName,
+    GeoCoordinates? location,
+    double? distanceFromPrevKm,
+  }) async {
+    try {
+      final tripPlace = TripPlace(
+        id: '',
+        placeId: placeId,
+        dayIndex: dayIndex,
+        order: order,
+        displayName: displayName,
+        location: location,
+        distanceFromPrevKm: distanceFromPrevKm,
+        addedAt: DateTime.now(),
+      );
+      final id = await _service.addTripPlace(tripId, tripPlace);
+      return Result.ok(id);
+    } catch (e) {
+      _log.warning('addTripPlace failed: $e');
+      return Result.error(Exception(e.toString()));
+    }
+  }
+
+  Future<Result<void>> removeTripPlace(
+    String tripId,
+    String tripPlaceId,
+  ) async {
+    try {
+      await _service.removeTripPlace(tripId, tripPlaceId);
+      return Result.ok(null);
+    } catch (e) {
+      _log.warning('removeTripPlace failed: $e');
+      return Result.error(Exception(e.toString()));
+    }
+  }
+
+  Future<Result<void>> reorderDayPlaces(
+    String tripId,
+    int dayIndex,
+    List<String> orderedIds,
+  ) async {
+    try {
+      await _service.reorderDayPlaces(tripId, dayIndex, orderedIds);
+      return Result.ok(null);
+    } catch (e) {
+      _log.warning('reorderDayPlaces failed: $e');
       return Result.error(Exception(e.toString()));
     }
   }
