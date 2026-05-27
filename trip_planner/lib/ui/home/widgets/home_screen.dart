@@ -539,6 +539,31 @@ class _PlannedTripsList extends StatelessWidget {
 
   final HomeViewModel viewModel;
 
+  Future<bool> _confirmDelete(BuildContext context, Trip trip) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Usunąć wycieczkę?'),
+        content: Text(
+          'Czy na pewno chcesz usunąć wycieczkę do "${trip.destination}"? '
+          'Tej operacji nie można cofnąć.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Anuluj'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade400),
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Trip>>(
@@ -579,11 +604,25 @@ class _PlannedTripsList extends StatelessWidget {
         return Column(
           children: [
             for (var i = 0; i < trips.length; i++) ...[
-              _TripRow(
-                trip: trips[i],
-                coverUrlFuture: viewModel.getTripCoverUrl(trips[i]),
-                onTap: () =>
-                    context.push(Routes.tripDetailsPath(trips[i].id)),
+              Dismissible(
+                key: ValueKey('trip-${trips[i].id}'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade400,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.delete_outline, color: Colors.white),
+                ),
+                confirmDismiss: (_) => _confirmDelete(context, trips[i]),
+                onDismissed: (_) => viewModel.deleteTrip(trips[i].id),
+                child: _TripRow(
+                  trip: trips[i],
+                  coverUrlFuture: viewModel.getTripCoverUrl(trips[i]),
+                  onTap: () => context.push(Routes.tripDetailsPath(trips[i].id)),
+                ),
               ),
               if (i != trips.length - 1)
                 const Divider(height: 1, color: AppColors.separator),

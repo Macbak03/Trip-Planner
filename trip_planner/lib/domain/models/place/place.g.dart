@@ -55,6 +55,11 @@ _Place _$PlaceFromJson(Map<String, dynamic> json) => _Place(
       : OpeningHours.fromJson(json['openingHours'] as Map<String, dynamic>),
   internationalPhoneNumber: json['internationalPhoneNumber'] as String?,
   websiteUri: json['websiteUri'] as String?,
+  reviews:
+      (json['reviews'] as List<dynamic>?)
+          ?.map((e) => PlaceReview.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <PlaceReview>[],
 );
 
 Map<String, dynamic> _$PlaceToJson(_Place instance) => <String, dynamic>{
@@ -70,4 +75,5 @@ Map<String, dynamic> _$PlaceToJson(_Place instance) => <String, dynamic>{
   'openingHours': instance.openingHours?.toJson(),
   'internationalPhoneNumber': instance.internationalPhoneNumber,
   'websiteUri': instance.websiteUri,
+  'reviews': instance.reviews.map((e) => e.toJson()).toList(),
 };

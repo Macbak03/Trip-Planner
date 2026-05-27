@@ -37,6 +37,10 @@ class TripDetailsViewModel extends ChangeNotifier {
   }) : _tripsRepository = tripsRepository,
        _placesRepository = placesRepository,
        _directionsService = directionsService {
+    // Restore the previously selected day for this trip. The view model is
+    // recreated when navigating back from Place Details (go_router rebuilds the
+    // route), so without this the day would reset to 1 on every return.
+    _selectedDay = _lastSelectedDayByTrip[tripId] ?? 1;
     search = Command1(_search);
     addPlace = Command1(_addPlace);
     removePlace = Command1(_removePlace);
@@ -45,6 +49,9 @@ class TripDetailsViewModel extends ChangeNotifier {
     updateTripMeta = Command1(_updateTripMeta);
     load.execute();
   }
+
+  /// Remembers the last selected day per trip across view model recreations.
+  static final Map<String, int> _lastSelectedDayByTrip = <String, int>{};
 
   final String tripId;
   final TripsRepository _tripsRepository;
@@ -130,6 +137,7 @@ class TripDetailsViewModel extends ChangeNotifier {
   void selectDay(int dayIndex) {
     if (dayIndex == _selectedDay) return;
     _selectedDay = dayIndex;
+    _lastSelectedDayByTrip[tripId] = dayIndex;
     notifyListeners();
     unawaited(_refreshRoute());
   }

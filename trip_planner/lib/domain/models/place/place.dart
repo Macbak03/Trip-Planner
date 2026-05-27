@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:trip_planner/domain/models/place/place_review.dart';
 
 part 'place.freezed.dart';
 part 'place.g.dart';
@@ -40,6 +41,7 @@ abstract class Place with _$Place {
     OpeningHours? openingHours,
     String? internationalPhoneNumber,
     String? websiteUri,
+    @Default(<PlaceReview>[]) List<PlaceReview> reviews,
   }) = _Place;
 
   factory Place.fromJson(Map<String, dynamic> json) => _$PlaceFromJson(json);

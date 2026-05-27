@@ -102,6 +102,16 @@ class HomeViewModel extends ChangeNotifier {
     _createdTripId = null;
   }
 
+  /// Deletes a planned trip. The trips list is a Firestore stream, so the row
+  /// disappears automatically once the delete propagates.
+  Future<Result<void>> deleteTrip(String tripId) async {
+    final result = await _tripsRepository.deleteTrip(tripId);
+    if (result is Error<void>) {
+      _log.warning('deleteTrip failed: ${result.error}');
+    }
+    return result;
+  }
+
   void _scheduleAutocomplete(String value) {
     _autocompleteDebounce?.cancel();
     final trimmed = value.trim();
@@ -205,15 +215,13 @@ class HomeViewModel extends ChangeNotifier {
     if (destination.isEmpty) {
       return _fail('Wpisz cel podróży');
     }
-    final budget = _draft.budget;
-    if (budget == null || budget <= 0) {
-      return _fail('Podaj budżet większy od zera');
-    }
-    final start = _draft.startDate;
-    final end = _draft.endDate;
-    if (start == null || end == null) {
-      return _fail('Wybierz zakres dat');
-    }
+    // Budget and dates are optional here — the user can fill them in later on
+    // the Trip Details screen (it has an edit sheet). We fall back to sensible
+    // defaults so the trip can be created right away from just a destination.
+    final budget = _draft.budget ?? 0;
+    final today = DateTime.now();
+    final start = _draft.startDate ?? DateTime(today.year, today.month, today.day);
+    final end = _draft.endDate ?? start;
 
     final result = await _tripsRepository.createTrip(
       destination: destination,

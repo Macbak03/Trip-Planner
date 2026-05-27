@@ -553,7 +553,7 @@ as List<String>,
 /// @nodoc
 mixin _$Place {
 
- String get id; String get displayName; String? get formattedAddress; GeoCoordinates? get location; List<String> get types; double? get rating; int? get userRatingsTotal; int? get priceLevel; List<String> get photoRefs; OpeningHours? get openingHours; String? get internationalPhoneNumber; String? get websiteUri;
+ String get id; String get displayName; String? get formattedAddress; GeoCoordinates? get location; List<String> get types; double? get rating; int? get userRatingsTotal; int? get priceLevel; List<String> get photoRefs; OpeningHours? get openingHours; String? get internationalPhoneNumber; String? get websiteUri; List<PlaceReview> get reviews;
 /// Create a copy of Place
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -566,16 +566,16 @@ $PlaceCopyWith<Place> get copyWith => _$PlaceCopyWithImpl<Place>(this as Place, 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Place&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.formattedAddress, formattedAddress) || other.formattedAddress == formattedAddress)&&(identical(other.location, location) || other.location == location)&&const DeepCollectionEquality().equals(other.types, types)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.userRatingsTotal, userRatingsTotal) || other.userRatingsTotal == userRatingsTotal)&&(identical(other.priceLevel, priceLevel) || other.priceLevel == priceLevel)&&const DeepCollectionEquality().equals(other.photoRefs, photoRefs)&&(identical(other.openingHours, openingHours) || other.openingHours == openingHours)&&(identical(other.internationalPhoneNumber, internationalPhoneNumber) || other.internationalPhoneNumber == internationalPhoneNumber)&&(identical(other.websiteUri, websiteUri) || other.websiteUri == websiteUri));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Place&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.formattedAddress, formattedAddress) || other.formattedAddress == formattedAddress)&&(identical(other.location, location) || other.location == location)&&const DeepCollectionEquality().equals(other.types, types)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.userRatingsTotal, userRatingsTotal) || other.userRatingsTotal == userRatingsTotal)&&(identical(other.priceLevel, priceLevel) || other.priceLevel == priceLevel)&&const DeepCollectionEquality().equals(other.photoRefs, photoRefs)&&(identical(other.openingHours, openingHours) || other.openingHours == openingHours)&&(identical(other.internationalPhoneNumber, internationalPhoneNumber) || other.internationalPhoneNumber == internationalPhoneNumber)&&(identical(other.websiteUri, websiteUri) || other.websiteUri == websiteUri)&&const DeepCollectionEquality().equals(other.reviews, reviews));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,displayName,formattedAddress,location,const DeepCollectionEquality().hash(types),rating,userRatingsTotal,priceLevel,const DeepCollectionEquality().hash(photoRefs),openingHours,internationalPhoneNumber,websiteUri);
+int get hashCode => Object.hash(runtimeType,id,displayName,formattedAddress,location,const DeepCollectionEquality().hash(types),rating,userRatingsTotal,priceLevel,const DeepCollectionEquality().hash(photoRefs),openingHours,internationalPhoneNumber,websiteUri,const DeepCollectionEquality().hash(reviews));
 
 @override
 String toString() {
-  return 'Place(id: $id, displayName: $displayName, formattedAddress: $formattedAddress, location: $location, types: $types, rating: $rating, userRatingsTotal: $userRatingsTotal, priceLevel: $priceLevel, photoRefs: $photoRefs, openingHours: $openingHours, internationalPhoneNumber: $internationalPhoneNumber, websiteUri: $websiteUri)';
+  return 'Place(id: $id, displayName: $displayName, formattedAddress: $formattedAddress, location: $location, types: $types, rating: $rating, userRatingsTotal: $userRatingsTotal, priceLevel: $priceLevel, photoRefs: $photoRefs, openingHours: $openingHours, internationalPhoneNumber: $internationalPhoneNumber, websiteUri: $websiteUri, reviews: $reviews)';
 }
 
 
@@ -586,7 +586,7 @@ abstract mixin class $PlaceCopyWith<$Res>  {
   factory $PlaceCopyWith(Place value, $Res Function(Place) _then) = _$PlaceCopyWithImpl;
 @useResult
 $Res call({
- String id, String displayName, String? formattedAddress, GeoCoordinates? location, List<String> types, double? rating, int? userRatingsTotal, int? priceLevel, List<String> photoRefs, OpeningHours? openingHours, String? internationalPhoneNumber, String? websiteUri
+ String id, String displayName, String? formattedAddress, GeoCoordinates? location, List<String> types, double? rating, int? userRatingsTotal, int? priceLevel, List<String> photoRefs, OpeningHours? openingHours, String? internationalPhoneNumber, String? websiteUri, List<PlaceReview> reviews
 });
 
 
@@ -603,7 +603,7 @@ class _$PlaceCopyWithImpl<$Res>
 
 /// Create a copy of Place
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? displayName = null,Object? formattedAddress = freezed,Object? location = freezed,Object? types = null,Object? rating = freezed,Object? userRatingsTotal = freezed,Object? priceLevel = freezed,Object? photoRefs = null,Object? openingHours = freezed,Object? internationalPhoneNumber = freezed,Object? websiteUri = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? displayName = null,Object? formattedAddress = freezed,Object? location = freezed,Object? types = null,Object? rating = freezed,Object? userRatingsTotal = freezed,Object? priceLevel = freezed,Object? photoRefs = null,Object? openingHours = freezed,Object? internationalPhoneNumber = freezed,Object? websiteUri = freezed,Object? reviews = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
@@ -617,7 +617,8 @@ as int?,photoRefs: null == photoRefs ? _self.photoRefs : photoRefs // ignore: ca
 as List<String>,openingHours: freezed == openingHours ? _self.openingHours : openingHours // ignore: cast_nullable_to_non_nullable
 as OpeningHours?,internationalPhoneNumber: freezed == internationalPhoneNumber ? _self.internationalPhoneNumber : internationalPhoneNumber // ignore: cast_nullable_to_non_nullable
 as String?,websiteUri: freezed == websiteUri ? _self.websiteUri : websiteUri // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,reviews: null == reviews ? _self.reviews : reviews // ignore: cast_nullable_to_non_nullable
+as List<PlaceReview>,
   ));
 }
 /// Create a copy of Place
@@ -726,10 +727,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String displayName,  String? formattedAddress,  GeoCoordinates? location,  List<String> types,  double? rating,  int? userRatingsTotal,  int? priceLevel,  List<String> photoRefs,  OpeningHours? openingHours,  String? internationalPhoneNumber,  String? websiteUri)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String displayName,  String? formattedAddress,  GeoCoordinates? location,  List<String> types,  double? rating,  int? userRatingsTotal,  int? priceLevel,  List<String> photoRefs,  OpeningHours? openingHours,  String? internationalPhoneNumber,  String? websiteUri,  List<PlaceReview> reviews)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Place() when $default != null:
-return $default(_that.id,_that.displayName,_that.formattedAddress,_that.location,_that.types,_that.rating,_that.userRatingsTotal,_that.priceLevel,_that.photoRefs,_that.openingHours,_that.internationalPhoneNumber,_that.websiteUri);case _:
+return $default(_that.id,_that.displayName,_that.formattedAddress,_that.location,_that.types,_that.rating,_that.userRatingsTotal,_that.priceLevel,_that.photoRefs,_that.openingHours,_that.internationalPhoneNumber,_that.websiteUri,_that.reviews);case _:
   return orElse();
 
 }
@@ -747,10 +748,10 @@ return $default(_that.id,_that.displayName,_that.formattedAddress,_that.location
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String displayName,  String? formattedAddress,  GeoCoordinates? location,  List<String> types,  double? rating,  int? userRatingsTotal,  int? priceLevel,  List<String> photoRefs,  OpeningHours? openingHours,  String? internationalPhoneNumber,  String? websiteUri)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String displayName,  String? formattedAddress,  GeoCoordinates? location,  List<String> types,  double? rating,  int? userRatingsTotal,  int? priceLevel,  List<String> photoRefs,  OpeningHours? openingHours,  String? internationalPhoneNumber,  String? websiteUri,  List<PlaceReview> reviews)  $default,) {final _that = this;
 switch (_that) {
 case _Place():
-return $default(_that.id,_that.displayName,_that.formattedAddress,_that.location,_that.types,_that.rating,_that.userRatingsTotal,_that.priceLevel,_that.photoRefs,_that.openingHours,_that.internationalPhoneNumber,_that.websiteUri);case _:
+return $default(_that.id,_that.displayName,_that.formattedAddress,_that.location,_that.types,_that.rating,_that.userRatingsTotal,_that.priceLevel,_that.photoRefs,_that.openingHours,_that.internationalPhoneNumber,_that.websiteUri,_that.reviews);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -767,10 +768,10 @@ return $default(_that.id,_that.displayName,_that.formattedAddress,_that.location
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String displayName,  String? formattedAddress,  GeoCoordinates? location,  List<String> types,  double? rating,  int? userRatingsTotal,  int? priceLevel,  List<String> photoRefs,  OpeningHours? openingHours,  String? internationalPhoneNumber,  String? websiteUri)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String displayName,  String? formattedAddress,  GeoCoordinates? location,  List<String> types,  double? rating,  int? userRatingsTotal,  int? priceLevel,  List<String> photoRefs,  OpeningHours? openingHours,  String? internationalPhoneNumber,  String? websiteUri,  List<PlaceReview> reviews)?  $default,) {final _that = this;
 switch (_that) {
 case _Place() when $default != null:
-return $default(_that.id,_that.displayName,_that.formattedAddress,_that.location,_that.types,_that.rating,_that.userRatingsTotal,_that.priceLevel,_that.photoRefs,_that.openingHours,_that.internationalPhoneNumber,_that.websiteUri);case _:
+return $default(_that.id,_that.displayName,_that.formattedAddress,_that.location,_that.types,_that.rating,_that.userRatingsTotal,_that.priceLevel,_that.photoRefs,_that.openingHours,_that.internationalPhoneNumber,_that.websiteUri,_that.reviews);case _:
   return null;
 
 }
@@ -782,7 +783,7 @@ return $default(_that.id,_that.displayName,_that.formattedAddress,_that.location
 @JsonSerializable()
 
 class _Place implements Place {
-  const _Place({required this.id, required this.displayName, this.formattedAddress, this.location, final  List<String> types = const <String>[], this.rating, this.userRatingsTotal, this.priceLevel, final  List<String> photoRefs = const <String>[], this.openingHours, this.internationalPhoneNumber, this.websiteUri}): _types = types,_photoRefs = photoRefs;
+  const _Place({required this.id, required this.displayName, this.formattedAddress, this.location, final  List<String> types = const <String>[], this.rating, this.userRatingsTotal, this.priceLevel, final  List<String> photoRefs = const <String>[], this.openingHours, this.internationalPhoneNumber, this.websiteUri, final  List<PlaceReview> reviews = const <PlaceReview>[]}): _types = types,_photoRefs = photoRefs,_reviews = reviews;
   factory _Place.fromJson(Map<String, dynamic> json) => _$PlaceFromJson(json);
 
 @override final  String id;
@@ -809,6 +810,13 @@ class _Place implements Place {
 @override final  OpeningHours? openingHours;
 @override final  String? internationalPhoneNumber;
 @override final  String? websiteUri;
+ final  List<PlaceReview> _reviews;
+@override@JsonKey() List<PlaceReview> get reviews {
+  if (_reviews is EqualUnmodifiableListView) return _reviews;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_reviews);
+}
+
 
 /// Create a copy of Place
 /// with the given fields replaced by the non-null parameter values.
@@ -823,16 +831,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Place&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.formattedAddress, formattedAddress) || other.formattedAddress == formattedAddress)&&(identical(other.location, location) || other.location == location)&&const DeepCollectionEquality().equals(other._types, _types)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.userRatingsTotal, userRatingsTotal) || other.userRatingsTotal == userRatingsTotal)&&(identical(other.priceLevel, priceLevel) || other.priceLevel == priceLevel)&&const DeepCollectionEquality().equals(other._photoRefs, _photoRefs)&&(identical(other.openingHours, openingHours) || other.openingHours == openingHours)&&(identical(other.internationalPhoneNumber, internationalPhoneNumber) || other.internationalPhoneNumber == internationalPhoneNumber)&&(identical(other.websiteUri, websiteUri) || other.websiteUri == websiteUri));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Place&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.formattedAddress, formattedAddress) || other.formattedAddress == formattedAddress)&&(identical(other.location, location) || other.location == location)&&const DeepCollectionEquality().equals(other._types, _types)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.userRatingsTotal, userRatingsTotal) || other.userRatingsTotal == userRatingsTotal)&&(identical(other.priceLevel, priceLevel) || other.priceLevel == priceLevel)&&const DeepCollectionEquality().equals(other._photoRefs, _photoRefs)&&(identical(other.openingHours, openingHours) || other.openingHours == openingHours)&&(identical(other.internationalPhoneNumber, internationalPhoneNumber) || other.internationalPhoneNumber == internationalPhoneNumber)&&(identical(other.websiteUri, websiteUri) || other.websiteUri == websiteUri)&&const DeepCollectionEquality().equals(other._reviews, _reviews));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,displayName,formattedAddress,location,const DeepCollectionEquality().hash(_types),rating,userRatingsTotal,priceLevel,const DeepCollectionEquality().hash(_photoRefs),openingHours,internationalPhoneNumber,websiteUri);
+int get hashCode => Object.hash(runtimeType,id,displayName,formattedAddress,location,const DeepCollectionEquality().hash(_types),rating,userRatingsTotal,priceLevel,const DeepCollectionEquality().hash(_photoRefs),openingHours,internationalPhoneNumber,websiteUri,const DeepCollectionEquality().hash(_reviews));
 
 @override
 String toString() {
-  return 'Place(id: $id, displayName: $displayName, formattedAddress: $formattedAddress, location: $location, types: $types, rating: $rating, userRatingsTotal: $userRatingsTotal, priceLevel: $priceLevel, photoRefs: $photoRefs, openingHours: $openingHours, internationalPhoneNumber: $internationalPhoneNumber, websiteUri: $websiteUri)';
+  return 'Place(id: $id, displayName: $displayName, formattedAddress: $formattedAddress, location: $location, types: $types, rating: $rating, userRatingsTotal: $userRatingsTotal, priceLevel: $priceLevel, photoRefs: $photoRefs, openingHours: $openingHours, internationalPhoneNumber: $internationalPhoneNumber, websiteUri: $websiteUri, reviews: $reviews)';
 }
 
 
@@ -843,7 +851,7 @@ abstract mixin class _$PlaceCopyWith<$Res> implements $PlaceCopyWith<$Res> {
   factory _$PlaceCopyWith(_Place value, $Res Function(_Place) _then) = __$PlaceCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String displayName, String? formattedAddress, GeoCoordinates? location, List<String> types, double? rating, int? userRatingsTotal, int? priceLevel, List<String> photoRefs, OpeningHours? openingHours, String? internationalPhoneNumber, String? websiteUri
+ String id, String displayName, String? formattedAddress, GeoCoordinates? location, List<String> types, double? rating, int? userRatingsTotal, int? priceLevel, List<String> photoRefs, OpeningHours? openingHours, String? internationalPhoneNumber, String? websiteUri, List<PlaceReview> reviews
 });
 
 
@@ -860,7 +868,7 @@ class __$PlaceCopyWithImpl<$Res>
 
 /// Create a copy of Place
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? displayName = null,Object? formattedAddress = freezed,Object? location = freezed,Object? types = null,Object? rating = freezed,Object? userRatingsTotal = freezed,Object? priceLevel = freezed,Object? photoRefs = null,Object? openingHours = freezed,Object? internationalPhoneNumber = freezed,Object? websiteUri = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? displayName = null,Object? formattedAddress = freezed,Object? location = freezed,Object? types = null,Object? rating = freezed,Object? userRatingsTotal = freezed,Object? priceLevel = freezed,Object? photoRefs = null,Object? openingHours = freezed,Object? internationalPhoneNumber = freezed,Object? websiteUri = freezed,Object? reviews = null,}) {
   return _then(_Place(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
@@ -874,7 +882,8 @@ as int?,photoRefs: null == photoRefs ? _self._photoRefs : photoRefs // ignore: c
 as List<String>,openingHours: freezed == openingHours ? _self.openingHours : openingHours // ignore: cast_nullable_to_non_nullable
 as OpeningHours?,internationalPhoneNumber: freezed == internationalPhoneNumber ? _self.internationalPhoneNumber : internationalPhoneNumber // ignore: cast_nullable_to_non_nullable
 as String?,websiteUri: freezed == websiteUri ? _self.websiteUri : websiteUri // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,reviews: null == reviews ? _self._reviews : reviews // ignore: cast_nullable_to_non_nullable
+as List<PlaceReview>,
   ));
 }
 

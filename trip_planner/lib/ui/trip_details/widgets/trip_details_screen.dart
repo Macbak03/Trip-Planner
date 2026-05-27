@@ -141,7 +141,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                 _refreshCameraToMarkers();
                               },
                               onMarkerTap: (placeId) => context.push(
-                                Routes.placeDetailsPath(vm.tripId, placeId),
+                                Routes.placeDetailsPath(vm.tripId, placeId, dayIndex: vm.selectedDay),
                               ),
                               onMapTap: (latLng) async {
                                 final placeId = await vm.findPlaceIdAtLocation(
@@ -151,7 +151,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                 if (placeId == null) return;
                                 if (!context.mounted) return;
                                 context.push(
-                                  Routes.placeDetailsPath(vm.tripId, placeId),
+                                  Routes.placeDetailsPath(vm.tripId, placeId, dayIndex: vm.selectedDay),
                                 );
                               },
                             ),
@@ -174,7 +174,13 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       },
                       onTap: (placeId) {
                         final tripId = vm.tripId;
-                        context.push(Routes.placeDetailsPath(tripId, placeId));
+                        context.push(
+                          Routes.placeDetailsPath(
+                            tripId,
+                            placeId,
+                            dayIndex: vm.selectedDay,
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -839,8 +845,13 @@ class _DayPlacesSliver extends StatelessWidget {
           final place = places[idx];
           return _DayPlaceRow(
             place: place,
-            onTap: () =>
-                context.push(Routes.placeDetailsPath(vm.tripId, place.placeId)),
+            onTap: () => context.push(
+              Routes.placeDetailsPath(
+                vm.tripId,
+                place.placeId,
+                dayIndex: vm.selectedDay,
+              ),
+            ),
             onRemove: () => vm.removePlace.execute(place.id),
           );
         },
@@ -997,8 +1008,13 @@ class _SuggestedPlacesSliver extends StatelessWidget {
           photoUrl: place.photoRefs.isEmpty
               ? null
               : vm.photoUrl(place.photoRefs.first, maxWidthPx: 400),
-          onTap: () =>
-              context.push(Routes.placeDetailsPath(vm.tripId, place.id)),
+          onTap: () => context.push(
+            Routes.placeDetailsPath(
+              vm.tripId,
+              place.id,
+              dayIndex: vm.selectedDay,
+            ),
+          ),
           onAdd: () => vm.addPlace.execute(place.id),
         );
       }, childCount: places.length),

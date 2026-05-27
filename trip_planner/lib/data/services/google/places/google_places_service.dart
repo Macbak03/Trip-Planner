@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:trip_planner/domain/models/place/place.dart';
+import 'package:trip_planner/domain/models/place/place_review.dart';
 import 'package:trip_planner/domain/models/place/place_suggestion.dart';
 
 /// REST client for Google Places API (New) v1.
@@ -115,10 +116,14 @@ class GooglePlacesService {
       'userRatingCount,priceLevel,photos,regularOpeningHours,'
       'internationalPhoneNumber,websiteUri';
 
+  /// Extended field mask for full place details: adds `reviews` which are
+  /// expensive enough that we don't want them on list endpoints.
+  static const String _detailsPlaceFields = '$_defaultPlaceFields,reviews';
+
   Future<Place> getDetails(
     String placeId, {
     String? sessionToken,
-    String fields = _defaultPlaceFields,
+    String fields = _detailsPlaceFields,
   }) async {
     final uri = Uri.parse(
       '$_base/places/$placeId'
@@ -280,6 +285,10 @@ class GooglePlacesService {
     final priceLevel = priceLevelRaw is int
         ? priceLevelRaw
         : (priceLevelRaw is String ? _priceLevelFromString(priceLevelRaw) : null);
+    final reviews = (json['reviews'] as List<dynamic>? ?? const [])
+        .map((r) => _parseReview(r as Map<String, dynamic>))
+        .whereType<PlaceReview>()
+        .toList();
     return Place(
       id: json['id'] as String? ?? '',
       displayName: displayName,
@@ -293,6 +302,32 @@ class GooglePlacesService {
       openingHours: openingHours,
       internationalPhoneNumber: json['internationalPhoneNumber'] as String?,
       websiteUri: json['websiteUri'] as String?,
+      reviews: reviews,
+    );
+  }
+
+  PlaceReview? _parseReview(Map<String, dynamic> json) {
+    final author = json['authorAttribution'] as Map<String, dynamic>?;
+    final authorName = author?['displayName'] as String?;
+    if (authorName == null || authorName.isEmpty) return null;
+    final ratingRaw = json['rating'];
+    final rating = ratingRaw is num ? ratingRaw.toDouble() : 0.0;
+    final textObj = json['text'] as Map<String, dynamic>?;
+    final text = textObj?['text'] as String? ?? '';
+    final language = textObj?['languageCode'] as String?;
+    final publishTime = json['publishTime'] as String?;
+    DateTime? publishedAt;
+    if (publishTime != null) {
+      publishedAt = DateTime.tryParse(publishTime);
+    }
+    return PlaceReview(
+      authorName: authorName,
+      authorAvatarUrl: author?['photoUri'] as String?,
+      rating: rating,
+      text: text,
+      publishedAt: publishedAt,
+      language: language,
+      relativeTime: json['relativePublishTimeDescription'] as String?,
     );
   }
 
