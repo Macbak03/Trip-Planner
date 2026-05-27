@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:trip_planner/data/repositories/places/places_repository.dart';
 import 'package:trip_planner/data/repositories/trips/trips_repository.dart';
+import 'package:trip_planner/data/services/google/directions/google_directions_service.dart';
 import 'package:trip_planner/domain/models/place/place.dart';
 import 'package:trip_planner/domain/models/trip/trip.dart';
 import 'package:trip_planner/domain/models/trip/trip_place.dart';
@@ -32,8 +33,10 @@ class TripDetailsViewModel extends ChangeNotifier {
     required this.tripId,
     required TripsRepository tripsRepository,
     required PlacesRepository placesRepository,
+    required GoogleDirectionsService directionsService,
   }) : _tripsRepository = tripsRepository,
-       _placesRepository = placesRepository {
+       _placesRepository = placesRepository,
+       _directionsService = directionsService {
     search = Command1(_search);
     addPlace = Command1(_addPlace);
     removePlace = Command1(_removePlace);
@@ -46,6 +49,7 @@ class TripDetailsViewModel extends ChangeNotifier {
   final String tripId;
   final TripsRepository _tripsRepository;
   final PlacesRepository _placesRepository;
+  final GoogleDirectionsService _directionsService;
   final _log = Logger('TripDetailsViewModel');
 
   late Command0<void> load;
@@ -67,10 +71,25 @@ class TripDetailsViewModel extends ChangeNotifier {
   Trip? get trip => _trip;
   int get selectedDay => _selectedDay;
   List<Place> get searchResults => _searchResults;
-  List<Place> get suggestedPlaces => _suggestedPlaces;
+
+  /// Top 10 suggested places that the user has NOT already added to this trip.
+  /// Backed by a larger pool fetched up-front so the visible list stays roughly
+  /// constant as places are added.
+  List<Place> get suggestedPlaces {
+    if (_suggestedPlaces.isEmpty) return const <Place>[];
+    final inTrip = _allPlaces.map((tp) => tp.placeId).toSet();
+    return _suggestedPlaces
+        .where((p) => !inTrip.contains(p.id))
+        .take(10)
+        .toList();
+  }
+
   GeoCoordinates? get destinationCoords => _destinationCoords;
+  List<GeoCoordinates> get routePolyline => _routePolyline;
 
   GeoCoordinates? _destinationCoords;
+  List<GeoCoordinates> _routePolyline = const <GeoCoordinates>[];
+  String _lastRouteKey = '';
 
   /// Total number of days in the trip (1-based). Defaults to 1 when trip is
   /// not yet loaded or has no dates.
@@ -111,6 +130,32 @@ class TripDetailsViewModel extends ChangeNotifier {
   void selectDay(int dayIndex) {
     if (dayIndex == _selectedDay) return;
     _selectedDay = dayIndex;
+    notifyListeners();
+    unawaited(_refreshRoute());
+  }
+
+  /// Fetches a real walking route between the selected day's places via the
+  /// Directions API and stores it as the displayable polyline. Falls back to
+  /// an empty polyline (no route drawn) if Directions is unavailable.
+  /// De-duplicates by a key built from ordered place IDs to avoid re-requests.
+  Future<void> _refreshRoute() async {
+    final places = placesForSelectedDay
+        .where((p) => p.location != null)
+        .toList();
+    final key = '$_selectedDay|${places.map((p) => p.placeId).join(',')}';
+    if (key == _lastRouteKey) return;
+    _lastRouteKey = key;
+    if (places.length < 2) {
+      if (_routePolyline.isNotEmpty) {
+        _routePolyline = const <GeoCoordinates>[];
+        notifyListeners();
+      }
+      return;
+    }
+    final waypoints = places.map((p) => p.location!).toList();
+    final result = await _directionsService.getRouteWalking(waypoints);
+    if (_lastRouteKey != key) return; // stale response, day/list changed
+    _routePolyline = result;
     notifyListeners();
   }
 
@@ -168,6 +213,7 @@ class TripDetailsViewModel extends ChangeNotifier {
       (list) {
         _allPlaces = list;
         notifyListeners();
+        unawaited(_refreshRoute());
       },
       onError: (Object e, StackTrace st) {
         _log.warning('streamTripPlaces failed: $e');
@@ -176,14 +222,14 @@ class TripDetailsViewModel extends ChangeNotifier {
   }
 
   Future<Result<List<Place>>> _search(String query) async {
-    final t = _trip;
-    final bias = t?.destinationPlaceId == null
-        ? null
-        : await _resolveDestinationCoords();
+    final coords = await _resolveDestinationCoords();
     final result = await _placesRepository.searchText(
       query,
-      biasLocation: bias,
+      biasLocation: coords,
       maxResultCount: 10,
+      // Hard-restrict to a ~80km circle around the trip destination, so
+      // searching e.g. in Spain doesn't surface places from Poland.
+      restrictLocation: coords != null,
     );
     switch (result) {
       case Ok<List<Place>>():
@@ -284,6 +330,35 @@ class TripDetailsViewModel extends ChangeNotifier {
   String photoUrl(String photoRef, {int maxWidthPx = 200}) =>
       _placesRepository.photoUrl(photoRef, maxWidthPx: maxWidthPx);
 
+  /// Reverse-lookup: given a map tap coordinate, returns the closest place's
+  /// Google Place ID if a POI sits within ~25 m of the tap. Used to make taps
+  /// on Google POI labels navigate to place details, since
+  /// `google_maps_flutter` doesn't expose a dedicated `onPoiClick`.
+  ///
+  /// `rankPreference: DISTANCE` makes the API return the closest place first;
+  /// we then additionally verify with Haversine that the hit really is close
+  /// enough (15 m), so empty-area taps don't accidentally navigate to a
+  /// faraway place that just happened to be inside the search radius.
+  Future<String?> findPlaceIdAtLocation(
+    double latitude,
+    double longitude,
+  ) async {
+    final tap = GeoCoordinates(latitude: latitude, longitude: longitude);
+    final result = await _placesRepository.searchNearby(
+      location: tap,
+      radiusMeters: 25,
+      maxResultCount: 1,
+      rankByDistance: true,
+    );
+    if (result is! Ok<List<Place>> || result.value.isEmpty) return null;
+    final place = result.value.first;
+    final loc = place.location;
+    if (loc == null) return null;
+    final distanceM = haversineKm(tap, loc) * 1000;
+    if (distanceM > 15) return null;
+    return place.id;
+  }
+
   Future<Result<List<Place>>> _loadSuggestedPlaces() async {
     final coords = await _resolveDestinationCoords();
     if (coords == null) {
@@ -299,7 +374,9 @@ class TripDetailsViewModel extends ChangeNotifier {
         'museum',
         'restaurant',
       ],
-      maxResultCount: 10,
+      // Over-fetch so we can hide added places and still keep the visible
+      // grid populated. The getter trims to 10.
+      maxResultCount: 20,
     );
     switch (result) {
       case Ok<List<Place>>():

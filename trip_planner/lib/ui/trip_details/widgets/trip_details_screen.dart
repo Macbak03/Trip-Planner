@@ -11,6 +11,7 @@ import 'package:trip_planner/domain/models/place/place.dart';
 import 'package:trip_planner/domain/models/trip/trip.dart';
 import 'package:trip_planner/domain/models/trip/trip_place.dart';
 import 'package:trip_planner/routing/routes.dart';
+import 'package:trip_planner/ui/core/widgets/skeleton.dart';
 import 'package:trip_planner/ui/trip_details/view_models/trip_details_viewmodel.dart';
 
 class TripDetailsScreen extends StatefulWidget {
@@ -61,18 +62,13 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
       final dest = widget.viewModel.destinationCoords;
       if (dest != null) {
         controller.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            LatLng(dest.latitude, dest.longitude),
-            11,
-          ),
+          CameraUpdate.newLatLngZoom(LatLng(dest.latitude, dest.longitude), 11),
         );
       }
       return;
     }
     if (points.length == 1) {
-      controller.animateCamera(
-        CameraUpdate.newLatLngZoom(points.first, 14),
-      );
+      controller.animateCamera(CameraUpdate.newLatLngZoom(points.first, 14));
       return;
     }
     final bounds = _boundsFor(points);
@@ -147,6 +143,17 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               onMarkerTap: (placeId) => context.push(
                                 Routes.placeDetailsPath(vm.tripId, placeId),
                               ),
+                              onMapTap: (latLng) async {
+                                final placeId = await vm.findPlaceIdAtLocation(
+                                  latLng.latitude,
+                                  latLng.longitude,
+                                );
+                                if (placeId == null) return;
+                                if (!context.mounted) return;
+                                context.push(
+                                  Routes.placeDetailsPath(vm.tripId, placeId),
+                                );
+                              },
                             ),
                     ),
                   ],
@@ -167,9 +174,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       },
                       onTap: (placeId) {
                         final tripId = vm.tripId;
-                        context.push(
-                          Routes.placeDetailsPath(tripId, placeId),
-                        );
+                        context.push(Routes.placeDetailsPath(tripId, placeId));
                       },
                     ),
                   ),
@@ -456,12 +461,14 @@ class _Body extends StatelessWidget {
     required this.onEditMeta,
     required this.onMapCreated,
     required this.onMarkerTap,
+    required this.onMapTap,
   });
 
   final TripDetailsViewModel vm;
   final VoidCallback onEditMeta;
   final ValueChanged<GoogleMapController> onMapCreated;
   final ValueChanged<String> onMarkerTap;
+  final ValueChanged<LatLng> onMapTap;
 
   @override
   Widget build(BuildContext context) {
@@ -533,6 +540,7 @@ class _Body extends StatelessWidget {
               maxHeight: maxHeight,
               onMapCreated: onMapCreated,
               onMarkerTap: onMarkerTap,
+              onMapTap: onMapTap,
             ),
           ],
         );
@@ -598,7 +606,9 @@ class _StickyDelegate extends SliverPersistentHeaderDelegate {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Container(
-        color: backgroundColor,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+        ),
         child: child,
       ),
     );
@@ -829,9 +839,8 @@ class _DayPlacesSliver extends StatelessWidget {
           final place = places[idx];
           return _DayPlaceRow(
             place: place,
-            onTap: () => context.push(
-              Routes.placeDetailsPath(vm.tripId, place.placeId),
-            ),
+            onTap: () =>
+                context.push(Routes.placeDetailsPath(vm.tripId, place.placeId)),
             onRemove: () => vm.removePlace.execute(place.id),
           );
         },
@@ -912,8 +921,8 @@ class _DistanceRow extends StatelessWidget {
     final label = km == null
         ? '—'
         : km! < 1
-              ? '${(km! * 1000).toStringAsFixed(0)}m'
-              : '${km!.toStringAsFixed(2)}km';
+        ? '${(km! * 1000).toStringAsFixed(0)}m'
+        : '${km!.toStringAsFixed(2)}km';
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
       child: Row(
@@ -946,11 +955,18 @@ class _SuggestedPlacesSliver extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final places = vm.suggestedPlaces;
-    if (places.isEmpty && vm.loadSuggestedPlaces.running) {
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(child: CircularProgressIndicator()),
+    final loading = places.isEmpty && vm.loadSuggestedPlaces.running;
+    if (loading) {
+      return SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          childAspectRatio: 0.78,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (_, _) => const _SuggestedPlaceSkeleton(),
+          childCount: 4,
         ),
       );
     }
@@ -974,21 +990,60 @@ class _SuggestedPlacesSliver extends StatelessWidget {
         crossAxisSpacing: 14,
         childAspectRatio: 0.78,
       ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final place = places[index];
-          return _SuggestedPlaceCard(
-            place: place,
-            photoUrl: place.photoRefs.isEmpty
-                ? null
-                : vm.photoUrl(place.photoRefs.first, maxWidthPx: 400),
-            onTap: () => context.push(
-              Routes.placeDetailsPath(vm.tripId, place.id),
-            ),
-            onAdd: () => vm.addPlace.execute(place.id),
-          );
-        },
-        childCount: places.length,
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final place = places[index];
+        return _SuggestedPlaceCard(
+          place: place,
+          photoUrl: place.photoRefs.isEmpty
+              ? null
+              : vm.photoUrl(place.photoRefs.first, maxWidthPx: 400),
+          onTap: () =>
+              context.push(Routes.placeDetailsPath(vm.tripId, place.id)),
+          onAdd: () => vm.addPlace.execute(place.id),
+        );
+      }, childCount: places.length),
+    );
+  }
+}
+
+class _SuggestedPlaceSkeleton extends StatelessWidget {
+  const _SuggestedPlaceSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Pulse(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(child: SkeletonBox(radius: 0)),
+              const SizedBox(height: 10),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: SkeletonBox(height: 12, width: 110, radius: 4),
+              ),
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: SkeletonBox(height: 10, width: 80, radius: 4),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1009,49 +1064,62 @@ class _SuggestedPlaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.cardBackground,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _PlacePhoto(url: photoUrl),
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: _AddButton(onTap: onAdd),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-              child: Text(
-                place.displayName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _PlacePhoto(url: photoUrl),
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: _AddButton(onTap: onAdd),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-              child: _StarRating(
-                rating: place.rating,
-                totalRatings: place.userRatingsTotal,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                child: Text(
+                  place.displayName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                child: _StarRating(
+                  rating: place.rating,
+                  totalRatings: place.userRatingsTotal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1065,6 +1133,7 @@ class _MapSheet extends StatefulWidget {
     required this.maxHeight,
     required this.onMapCreated,
     required this.onMarkerTap,
+    required this.onMapTap,
   });
 
   final TripDetailsViewModel vm;
@@ -1072,6 +1141,7 @@ class _MapSheet extends StatefulWidget {
   final double maxHeight;
   final ValueChanged<GoogleMapController> onMapCreated;
   final ValueChanged<String> onMarkerTap;
+  final ValueChanged<LatLng> onMapTap;
 
   @override
   State<_MapSheet> createState() => _MapSheetState();
@@ -1089,10 +1159,11 @@ class _MapSheetState extends State<_MapSheet> {
     final collapsed = widget.collapsedHeight;
     final maxHeight = widget.maxHeight;
     final snappedHeight = _expanded ? maxHeight : collapsed;
-    final height =
-        _dragging && _currentHeight != null ? _currentHeight! : snappedHeight;
-    final fullScreenFrac =
-        ((height - collapsed) / (maxHeight - collapsed)).clamp(0.0, 1.0);
+    final height = _dragging && _currentHeight != null
+        ? _currentHeight!
+        : snappedHeight;
+    final fullScreenFrac = ((height - collapsed) / (maxHeight - collapsed))
+        .clamp(0.0, 1.0);
     final margin = _sideMargin * (1 - fullScreenFrac);
     final radius = 24 * (1 - fullScreenFrac);
 
@@ -1125,8 +1196,10 @@ class _MapSheetState extends State<_MapSheet> {
                 setState(() {
                   _dragging = true;
                   final base = _currentHeight ?? snappedHeight;
-                  _currentHeight =
-                      (base - d.primaryDelta!).clamp(collapsed, maxHeight);
+                  _currentHeight = (base - d.primaryDelta!).clamp(
+                    collapsed,
+                    maxHeight,
+                  );
                 });
               },
               onDragEnd: (_) {
@@ -1145,6 +1218,7 @@ class _MapSheetState extends State<_MapSheet> {
                 vm: widget.vm,
                 onMapCreated: widget.onMapCreated,
                 onMarkerTap: widget.onMarkerTap,
+                onMapTap: widget.onMapTap,
               ),
             ),
           ],
@@ -1194,11 +1268,13 @@ class _MapView extends StatelessWidget {
     required this.vm,
     required this.onMapCreated,
     required this.onMarkerTap,
+    required this.onMapTap,
   });
 
   final TripDetailsViewModel vm;
   final ValueChanged<GoogleMapController> onMapCreated;
   final ValueChanged<String> onMarkerTap;
+  final ValueChanged<LatLng> onMapTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1222,12 +1298,16 @@ class _MapView extends StatelessWidget {
         if (p.location != null)
           LatLng(p.location!.latitude, p.location!.longitude),
     ];
-    final polylines = polylinePoints.length < 2
+    // Real walking route if Directions returned one; otherwise no polyline
+    final routePoints = <LatLng>[
+      for (final c in vm.routePolyline) LatLng(c.latitude, c.longitude),
+    ];
+    final polylines = routePoints.length < 2
         ? <Polyline>{}
         : <Polyline>{
             Polyline(
               polylineId: const PolylineId('route'),
-              points: polylinePoints,
+              points: routePoints,
               color: AppColors.accent,
               width: 4,
             ),
@@ -1241,21 +1321,33 @@ class _MapView extends StatelessWidget {
     final initialZoom = polylinePoints.isNotEmpty
         ? 12.0
         : (destCoords != null ? 11.0 : 2.0);
-    return GoogleMap(
-      onMapCreated: onMapCreated,
-      initialCameraPosition: CameraPosition(
-        target: initialTarget,
-        zoom: initialZoom,
-      ),
-      markers: markers,
-      polylines: polylines,
-      myLocationButtonEnabled: false,
-      zoomControlsEnabled: false,
-      gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-        Factory<OneSequenceGestureRecognizer>(
-          () => EagerGestureRecognizer(),
+    final showSkeleton = destCoords == null && polylinePoints.isEmpty;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        GoogleMap(
+          onMapCreated: onMapCreated,
+          initialCameraPosition: CameraPosition(
+            target: initialTarget,
+            zoom: initialZoom,
+          ),
+          markers: markers,
+          polylines: polylines,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          // Tap anywhere on the map -> reverse-lookup closest place via
+          // Places API (since `google_maps_flutter` doesn't expose a dedicated
+          // POI click event). If a place is within ~50 m of the tap, the
+          // parent navigates to its place details.
+          onTap: onMapTap,
+          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+            Factory<OneSequenceGestureRecognizer>(
+              () => EagerGestureRecognizer(),
+            ),
+          },
         ),
-      },
+        if (showSkeleton) const Pulse(child: SkeletonBox(radius: 0)),
+      ],
     );
   }
 }
@@ -1407,8 +1499,9 @@ class _EditTripMetaSheetState extends State<_EditTripMetaSheet> {
                           context,
                           TripMetaUpdate(
                             destination: dest.isEmpty ? null : dest,
-                            destinationPlaceId:
-                                dest != widget.trip.destination ? '' : null,
+                            destinationPlaceId: dest != widget.trip.destination
+                                ? ''
+                                : null,
                             budget: budget,
                             startDate: _startDate,
                             endDate: _endDate,

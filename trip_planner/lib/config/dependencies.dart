@@ -8,6 +8,7 @@ import 'package:trip_planner/data/repositories/places/places_repository.dart';
 import 'package:trip_planner/data/repositories/trips/trips_repository.dart';
 import 'package:trip_planner/data/services/firebase/auth/firebase_auth_service.dart';
 import 'package:trip_planner/data/services/firestore/trips/firestore_trips_service.dart';
+import 'package:trip_planner/data/services/google/directions/google_directions_service.dart';
 import 'package:trip_planner/data/services/google/places/google_places_service.dart';
 
 List<SingleChildWidget> get providers => [
@@ -28,6 +29,10 @@ List<SingleChildWidget> get providers => [
   ),
   Provider<GooglePlacesService>(
     create: (_) => GooglePlacesService(),
+    dispose: (_, service) => service.dispose(),
+  ),
+  Provider<GoogleDirectionsService>(
+    create: (_) => GoogleDirectionsService(),
     dispose: (_, service) => service.dispose(),
   ),
 

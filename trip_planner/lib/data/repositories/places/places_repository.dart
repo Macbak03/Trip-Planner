@@ -67,6 +67,7 @@ class PlacesRepository {
     required double radiusMeters,
     List<String> includedTypes = const <String>[],
     int maxResultCount = 10,
+    bool rankByDistance = false,
   }) async {
     try {
       final places = await _service.searchNearby(
@@ -74,6 +75,7 @@ class PlacesRepository {
         radiusMeters: radiusMeters,
         includedTypes: includedTypes,
         maxResultCount: maxResultCount,
+        rankByDistance: rankByDistance,
       );
       return Result.ok(places);
     } catch (e) {
@@ -87,8 +89,15 @@ class PlacesRepository {
     List<String> includedTypes = const <String>[],
     GeoCoordinates? biasLocation,
     int maxResultCount = 10,
+    bool restrictLocation = false,
   }) async {
-    final key = _searchTextKey(query, includedTypes, biasLocation, maxResultCount);
+    final key = _searchTextKey(
+      query,
+      includedTypes,
+      biasLocation,
+      maxResultCount,
+      restrictLocation,
+    );
     final cached = _searchTextCache[key];
     if (cached != null) return Result.ok(cached);
     try {
@@ -97,6 +106,7 @@ class PlacesRepository {
         includedTypes: includedTypes,
         biasLocation: biasLocation,
         maxResultCount: maxResultCount,
+        restrictLocation: restrictLocation,
       );
       _searchTextCache[key] = places;
       return Result.ok(places);
@@ -111,11 +121,12 @@ class PlacesRepository {
     List<String> types,
     GeoCoordinates? bias,
     int max,
+    bool restrict,
   ) {
     final biasKey = bias == null
         ? ''
         : '${bias.latitude.toStringAsFixed(2)},${bias.longitude.toStringAsFixed(2)}';
-    return '${query.trim().toLowerCase()}|${types.join(",")}|$biasKey|$max';
+    return '${query.trim().toLowerCase()}|${types.join(",")}|$biasKey|$max|$restrict';
   }
 
   /// Resolves [countryNames] to [Place] entries via `searchText`, returning the

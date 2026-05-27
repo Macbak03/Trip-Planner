@@ -58,6 +58,7 @@ GoRouter router(AuthNotifier authNotifier) => GoRouter(
           tripId: id,
           tripsRepository: context.read(),
           placesRepository: context.read(),
+          directionsService: context.read(),
         );
         return TripDetailsScreen(viewModel: viewModel);
       },

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -137,6 +138,7 @@ class GooglePlacesService {
     required double radiusMeters,
     List<String> includedTypes = const <String>[],
     int maxResultCount = 10,
+    bool rankByDistance = false,
   }) async {
     final uri = Uri.parse('$_base/places:searchNearby');
     final body = <String, dynamic>{
@@ -151,6 +153,7 @@ class GooglePlacesService {
         },
       },
       if (includedTypes.isNotEmpty) 'includedTypes': includedTypes,
+      if (rankByDistance) 'rankPreference': 'DISTANCE',
     };
     final res = await _http.post(
       uri,
@@ -177,14 +180,38 @@ class GooglePlacesService {
     GeoCoordinates? biasLocation,
     double biasRadiusMeters = 50000,
     int maxResultCount = 10,
+    bool restrictLocation = false,
   }) async {
     final uri = Uri.parse('$_base/places:searchText');
     final body = <String, dynamic>{
       'textQuery': query,
       'maxResultCount': maxResultCount,
       if (includedTypes.isNotEmpty) 'includedType': includedTypes.first,
-      if (biasLocation != null)
-        'locationBias': {
+    };
+    if (biasLocation != null) {
+      if (restrictLocation) {
+        // Text Search (New) accepts only `rectangle` for locationRestriction
+        // (circle is bias-only). Convert the radius into a rectangle around
+        // the centre point.
+        final dLat = biasRadiusMeters / 111000.0;
+        final cosLat = math
+            .cos(biasLocation.latitude * math.pi / 180.0)
+            .abs();
+        final dLng = biasRadiusMeters / (111000.0 * (cosLat < 0.01 ? 0.01 : cosLat));
+        body['locationRestriction'] = {
+          'rectangle': {
+            'low': {
+              'latitude': biasLocation.latitude - dLat,
+              'longitude': biasLocation.longitude - dLng,
+            },
+            'high': {
+              'latitude': biasLocation.latitude + dLat,
+              'longitude': biasLocation.longitude + dLng,
+            },
+          },
+        };
+      } else {
+        body['locationBias'] = {
           'circle': {
             'center': {
               'latitude': biasLocation.latitude,
@@ -192,8 +219,9 @@ class GooglePlacesService {
             },
             'radius': biasRadiusMeters,
           },
-        },
-    };
+        };
+      }
+    }
     final res = await _http.post(
       uri,
       headers: _headers(
