@@ -4,7 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:trip_planner/config/app_theme.dart';
 import 'package:trip_planner/domain/models/auth/auth_error.dart';
 import 'package:trip_planner/ui/auth/view_models/auth_viewmodel.dart';
+import 'package:trip_planner/ui/core/responsive.dart';
 
+part 'auth_screen_mobile.dart';
+part 'auth_screen_web.dart';
+
+/// Dispatcher for the Auth screen. Owns the shared scaffold (background +
+/// listenable view model) and picks the layout — [AuthMobileView] or
+/// [AuthWebView] — passing the view model down. The view files only arrange the
+/// shared presentational pieces ([_AuthLogo], [_AuthTabBar], [_AuthCard]).
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key, required this.viewModel});
 
@@ -12,26 +20,23 @@ class AuthScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Web has its own split layout (image left / form right) and supplies its
+    // own background, so the full-screen background image is mobile-only.
+    final isWeb = context.isWebLayout;
     return Scaffold(
+      backgroundColor: isWeb ? AppColors.sheetBackground : null,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _Background(),
+          if (!isWeb) const _Background(),
           SafeArea(
             child: ListenableBuilder(
               listenable: viewModel,
               builder: (context, _) {
-                return Column(
-                  children: [
-                    const SizedBox(height: 48),
-                    _buildLogo(),
-                    const SizedBox(height: 120),
-                    _buildTabBar(),
-                    const SizedBox(height: 20),
-                    _buildCard(),
-                    const SizedBox(height: 32),
-                  ],
-                );
+                if (context.isWebLayout) {
+                  return AuthWebView(viewModel: viewModel);
+                }
+                return AuthMobileView(viewModel: viewModel);
               },
             ),
           ),
@@ -39,8 +44,17 @@ class AuthScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildLogo() {
+// ---------------------------------------------------------------------------
+// Shared presentational components used by both the mobile and web layouts.
+// ---------------------------------------------------------------------------
+
+class _AuthLogo extends StatelessWidget {
+  const _AuthLogo();
+
+  @override
+  Widget build(BuildContext context) {
     return const Column(
       children: [
         Icon(Icons.map_outlined, color: AppColors.textPrimary, size: 48),
@@ -56,8 +70,106 @@ class AuthScreen extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _buildCard() {
+class _AuthTabBar extends StatelessWidget {
+  const _AuthTabBar({required this.viewModel});
+
+  final AuthViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: AppColors.authCardBg,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    _AuthTab(
+                      viewModel: viewModel,
+                      label: 'Sign in',
+                      tab: SelectedTab.login,
+                    ),
+                    _AuthTab(
+                      viewModel: viewModel,
+                      label: 'Sign up',
+                      tab: SelectedTab.signup,
+                    ),
+                  ],
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(painter: _GlassCardPainter()),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthTab extends StatelessWidget {
+  const _AuthTab({
+    required this.viewModel,
+    required this.label,
+    required this.tab,
+  });
+
+  final AuthViewModel viewModel;
+  final String label;
+  final SelectedTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = viewModel.selectedTab == tab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => viewModel.selectedTab = tab,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isSelected
+                  ? AppColors.textSecondary
+                  : AppColors.labelDisabled,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthCard extends StatelessWidget {
+  const _AuthCard({required this.viewModel});
+
+  final AuthViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: ClipRRect(
@@ -94,68 +206,6 @@ class AuthScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTabBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child:Stack(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: AppColors.authCardBg,
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    _buildTab('Sign in', SelectedTab.login),
-                    _buildTab('Sign up', SelectedTab.signup),
-                  ],
-                ),
-              ),
-               Positioned.fill(
-                child: IgnorePointer(
-                  child: CustomPaint(painter: _GlassCardPainter()),
-                ),
-              ),
-            ],
-          ) 
-        ),
-      ),
-    );
-  }
-
-
-  Widget _buildTab(String label, SelectedTab tab) {
-    final isSelected = viewModel.selectedTab == tab;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => viewModel.selectedTab = tab,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.accent : Colors.transparent,
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? AppColors.textSecondary : AppColors.labelDisabled,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildFields() {
     final error = viewModel.authError;
     final isSignUp = viewModel.selectedTab == SelectedTab.signup;
@@ -166,7 +216,9 @@ class AuthScreen extends StatelessWidget {
           controller: viewModel.emailController,
           hint: 'Email',
           keyboardType: TextInputType.emailAddress,
-          errorText: error?.type == AuthErrorType.email ? error!.description : null,
+          errorText: error?.type == AuthErrorType.email
+              ? error!.description
+              : null,
         ),
         const SizedBox(height: 12),
         _AuthTextField(
@@ -174,9 +226,12 @@ class AuthScreen extends StatelessWidget {
           hint: 'Password',
           obscure: viewModel.obscurePassword,
           onToggleObscure: viewModel.togglePasswordVisibility,
-          errorText: error?.type == AuthErrorType.password ? error!.description : null,
+          errorText: error?.type == AuthErrorType.password
+              ? error!.description
+              : null,
         ),
-        // Fixed-height section: repeat password (sign-up) or forgot password (sign-in)
+        // Fixed-height section: repeat password (sign-up) or forgot password
+        // (sign-in).
         SizedBox(
           height: 64,
           child: isSignUp
@@ -304,11 +359,11 @@ class _GlassCardPainter extends CustomPainter {
 }
 
 class _Background extends StatelessWidget {
+  const _Background();
+
   @override
   Widget build(BuildContext context) {
-    // Replace with actual background image:
     return Image.asset('assets/images/background.png', fit: BoxFit.cover);
-    //return Container(color: AppColors.authBg);
   }
 }
 

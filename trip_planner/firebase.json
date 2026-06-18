@@ -13,7 +13,8 @@
                     "projectId": "trip-planner-f1441",
                     "configurations": {
                         "android": "1:622699848564:android:e4815411ddad3e4d244221",
-                        "ios": "1:622699848564:ios:b9fbedccfb6eaf1b244221"
+                        "ios": "1:622699848564:ios:b9fbedccfb6eaf1b244221",
+                        "web": "1:622699848564:web:13273b4b33e91ab0244221"
                     }
                 }
             }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:trip_planner/config/app_theme.dart';
 import 'package:trip_planner/routing/routes.dart';
+import 'package:trip_planner/ui/core/responsive.dart';
 import 'package:trip_planner/ui/core/widgets/frosted_circle_button.dart';
 
 /// Universal, transparent top bar shown on top of every authenticated content
@@ -65,6 +67,16 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Web: a conventional opaque header sits above the content (content flows
+    // beneath it). Mobile: the floating, transparent bar overlays the content.
+    if (context.isWebLayout) {
+      return Column(
+        children: [
+          const WebHeader(),
+          Expanded(child: child),
+        ],
+      );
+    }
     final mediaQuery = MediaQuery.of(context);
     return Stack(
       children: [
@@ -79,5 +91,112 @@ class AppShell extends StatelessWidget {
         const Positioned(top: 0, left: 0, right: 0, child: AppTopBar()),
       ],
     );
+  }
+}
+
+/// Web/desktop top navigation header shown above every authenticated content
+/// screen via [AppShell]. A solid bar with the app's brand (which routes back to
+/// Home), an optional Back button, and a Settings entry point — the web
+/// counterpart of the mobile floating [AppTopBar].
+class WebHeader extends StatelessWidget {
+  const WebHeader({super.key});
+
+  static const double height = 64;
+
+  @override
+  Widget build(BuildContext context) {
+    final location = GoRouterState.of(context).uri.path;
+    final showBack = location != Routes.home && context.canPop();
+    return Material(
+      color: AppColors.cardBackground,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.separator)),
+        ),
+        child: SizedBox(
+          height: height,
+          child: MaxWidthCenter(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: [
+                if (showBack) ...[
+                  _HeaderIconButton(
+                    icon: Icons.arrow_back,
+                    tooltip: 'Back',
+                    onTap: () => context.pop(),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => context.go(Routes.home),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.map_outlined,
+                          color: AppColors.accent,
+                          size: 24,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Trip Planner',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                _HeaderIconButton(
+                  icon: Icons.settings_outlined,
+                  tooltip: 'Settings',
+                  onTap: () => context.push(Routes.settings),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Plain circular icon button used inside [WebHeader]; reads on the light header
+/// and gains a hover/splash affordance on web via [InkWell].
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, color: AppColors.label, size: 22),
+        ),
+      ),
+    );
+    if (tooltip == null) return button;
+    return Tooltip(message: tooltip!, child: button);
   }
 }

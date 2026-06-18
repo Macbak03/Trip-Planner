@@ -2,12 +2,23 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:loop_page_view/loop_page_view.dart';
+import 'package:provider/provider.dart';
 import 'package:trip_planner/config/app_theme.dart';
+import 'package:trip_planner/data/repositories/places/places_repository.dart';
+import 'package:trip_planner/data/repositories/trips/trips_repository.dart';
 import 'package:trip_planner/domain/models/place/place.dart';
 import 'package:trip_planner/domain/models/place/place_review.dart';
+import 'package:trip_planner/ui/core/responsive.dart';
 import 'package:trip_planner/ui/core/widgets/skeleton.dart';
 import 'package:trip_planner/ui/place_details/view_models/place_details_viewmodel.dart';
 
+part 'place_details_screen_mobile.dart';
+part 'place_details_screen_web.dart';
+
+/// Dispatcher for the Place Details screen. Owns the view model lifecycle (the
+/// reviews page controller, add-to-trip action) and the load/error/empty
+/// states, then hands the loaded [Place] to the layout — [PlaceDetailsMobileView]
+/// or [PlaceDetailsWebView]. The view files contain only presentation.
 class PlaceDetailsScreen extends StatefulWidget {
   const PlaceDetailsScreen({super.key, required this.viewModel});
 
@@ -43,6 +54,15 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     }
   }
 
+  /// Removes the place from the selected day and returns to Trip Details, which
+  /// streams the places sub-collection and reflects the removal automatically.
+  void _onRemovePressed() {
+    widget.viewModel.removeFromTrip.execute();
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = widget.viewModel;
@@ -53,30 +73,30 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
           listenable: Listenable.merge([vm, vm.load]),
           builder: (context, _) {
             if (vm.load.running && vm.place == null) {
-              return const _LoadingBody();
+              return context.isWebLayout
+                  ? const MaxWidthCenter(maxWidth: 980, child: _LoadingBody())
+                  : const _LoadingBody();
             }
             if (vm.load.error && vm.place == null) {
               return _ErrorBody(onRetry: () => vm.load.execute());
             }
             final place = vm.place;
             if (place == null) return const _LoadingBody();
-            return Stack(
-              children: [
-                _Content(
-                  place: place,
-                  vm: vm,
-                  reviewsController: _reviewsController,
-                ),
-                if (vm.canAddToTrip)
-                  Positioned(
-                    right: 20,
-                    bottom: 20,
-                    child: _AddFab(
-                      onTap: _onAddPressed,
-                      running: vm.addToTrip.running,
-                    ),
-                  ),
-              ],
+            if (context.isWebLayout) {
+              return PlaceDetailsWebView(
+                place: place,
+                vm: vm,
+                reviewsController: _reviewsController,
+                onAdd: _onAddPressed,
+                onRemove: _onRemovePressed,
+              );
+            }
+            return PlaceDetailsMobileView(
+              place: place,
+              vm: vm,
+              reviewsController: _reviewsController,
+              onAdd: _onAddPressed,
+              onRemove: _onRemovePressed,
             );
           },
         ),
@@ -85,8 +105,155 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   }
 }
 
-class _Content extends StatelessWidget {
-  const _Content({
+/// A self-contained Place Details panel rendered inline over the Trip Details
+/// map on web (instead of navigating to a separate route). Creates and owns its
+/// own [PlaceDetailsViewModel] from the repositories in scope, so it can load,
+/// show and add the place without leaving the trip. Give it a
+/// `ValueKey(placeId)` so switching places rebuilds it with a fresh view model.
+class PlaceDetailsInlinePanel extends StatefulWidget {
+  const PlaceDetailsInlinePanel({
+    super.key,
+    required this.placeId,
+    required this.tripId,
+    required this.dayIndex,
+    required this.onClose,
+  });
+
+  final String placeId;
+  final String tripId;
+  final int dayIndex;
+  final VoidCallback onClose;
+
+  @override
+  State<PlaceDetailsInlinePanel> createState() =>
+      _PlaceDetailsInlinePanelState();
+}
+
+class _PlaceDetailsInlinePanelState extends State<PlaceDetailsInlinePanel> {
+  late final PlaceDetailsViewModel _vm;
+  late final LoopPageController _reviewsController;
+
+  @override
+  void initState() {
+    super.initState();
+    _reviewsController = LoopPageController();
+    _vm = PlaceDetailsViewModel(
+      placeId: widget.placeId,
+      tripId: widget.tripId,
+      dayIndex: widget.dayIndex,
+      placesRepository: context.read<PlacesRepository>(),
+      tripsRepository: context.read<TripsRepository>(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _vm.dispose();
+    _reviewsController.dispose();
+    super.dispose();
+  }
+
+  void _onAdd() {
+    _vm.addToTrip.execute();
+    widget.onClose();
+  }
+
+  void _onRemove() {
+    _vm.removeFromTrip.execute();
+    widget.onClose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 10,
+      color: AppColors.sheetBackground,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: ListenableBuilder(
+        listenable: Listenable.merge([_vm, _vm.load]),
+        builder: (context, _) {
+          final place = _vm.place;
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 6),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Place details',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (_vm.canAddToTrip && place != null) ...[
+                      _vm.isInCurrentDay
+                          ? _AddFab(
+                              onTap: _onRemove,
+                              running: _vm.removeFromTrip.running,
+                              isRemove: true,
+                            )
+                          : _AddFab(
+                              onTap: _onAdd,
+                              running: _vm.addToTrip.running,
+                            ),
+                      const SizedBox(width: 8),
+                    ],
+                    IconButton(
+                      icon: const Icon(Icons.close, color: AppColors.label),
+                      onPressed: widget.onClose,
+                      tooltip: 'Close',
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: _buildContent()),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_vm.load.running && _vm.place == null) {
+      return const _LoadingBody();
+    }
+    if (_vm.load.error && _vm.place == null) {
+      return _ErrorBody(onRetry: () => _vm.load.execute());
+    }
+    final place = _vm.place;
+    if (place == null) return const _LoadingBody();
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: _OuterCard(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: _PlaceDetailsBody(
+            place: place,
+            vm: _vm,
+            reviewsController: _reviewsController,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared presentational components used by both the mobile and web layouts.
+// ---------------------------------------------------------------------------
+
+/// The stacked place-details content (title, hero photo, meta and reviews),
+/// shared by the mobile screen, the web screen and the inline panel so all
+/// three use one identical single-column layout. Caller wraps it in a card and
+/// supplies the "Add" affordance.
+class _PlaceDetailsBody extends StatelessWidget {
+  const _PlaceDetailsBody({
     required this.place,
     required this.vm,
     required this.reviewsController,
@@ -101,45 +268,37 @@ class _Content extends StatelessWidget {
     final photoUrl = place.photoRefs.isEmpty
         ? null
         : vm.photoUrl(place.photoRefs.first, maxWidthPx: 1200);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      child: _OuterCard(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                place.displayName,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _HeroPhoto(url: photoUrl),
-              const SizedBox(height: 14),
-              _MetaSection(place: place),
-              const SizedBox(height: 16),
-              if (place.reviews.isNotEmpty) ...[
-                _ReviewsFrame(
-                  reviews: place.reviews,
-                  controller: reviewsController,
-                  currentIndex: vm.currentReviewIndex,
-                  onPageChanged: vm.setCurrentReviewIndex,
-                ),
-                const SizedBox(height: 12),
-                _DotsIndicator(
-                  count: place.reviews.length,
-                  activeIndex: vm.currentReviewIndex,
-                ),
-              ] else
-                const _NoReviewsPlaceholder(),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          place.displayName,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
           ),
         ),
-      ),
+        const SizedBox(height: 14),
+        _HeroPhoto(url: photoUrl),
+        const SizedBox(height: 14),
+        _MetaSection(place: place),
+        const SizedBox(height: 16),
+        if (place.reviews.isNotEmpty) ...[
+          _ReviewsFrame(
+            reviews: place.reviews,
+            controller: reviewsController,
+            currentIndex: vm.currentReviewIndex,
+            onPageChanged: vm.setCurrentReviewIndex,
+          ),
+          const SizedBox(height: 12),
+          _DotsIndicator(
+            count: place.reviews.length,
+            activeIndex: vm.currentReviewIndex,
+          ),
+        ] else
+          const _NoReviewsPlaceholder(),
+      ],
     );
   }
 }
@@ -365,13 +524,78 @@ class _ReviewsFrame extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         height: 210,
-        child: LoopPageView.builder(
-          controller: controller,
-          itemCount: reviews.length,
-          onPageChanged: onPageChanged,
-          itemBuilder: (context, index) {
-            return _ReviewItem(review: reviews[index]);
-          },
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: LoopPageView.builder(
+                controller: controller,
+                itemCount: reviews.length,
+                onPageChanged: onPageChanged,
+                itemBuilder: (context, index) {
+                  return _ReviewItem(review: reviews[index]);
+                },
+              ),
+            ),
+            // Tap arrows: page swiping isn't always available (e.g. with a
+            // mouse on web), so expose explicit previous/next controls.
+            if (reviews.length > 1) ...[
+              Positioned(
+                left: 4,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _ReviewArrow(
+                    icon: Icons.chevron_left,
+                    onTap: () => controller.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 4,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _ReviewArrow(
+                    icon: Icons.chevron_right,
+                    onTap: () => controller.nextPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small circular tap target overlaid on the reviews carousel for stepping
+/// between reviews (previous/next).
+class _ReviewArrow extends StatelessWidget {
+  const _ReviewArrow({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.cardBackground.withValues(alpha: 0.9),
+      shape: const CircleBorder(),
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.2),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(icon, size: 22, color: AppColors.textPrimary),
         ),
       ),
     );
@@ -756,16 +980,24 @@ class _NoReviewsPlaceholder extends StatelessWidget {
   }
 }
 
+/// Pill action button for the place: "Add" when the place isn't in the
+/// selected day, or a red "Remove" when it already is. The `isRemove` flag
+/// flips the label and color so both actions share one widget.
 class _AddFab extends StatelessWidget {
-  const _AddFab({required this.onTap, required this.running});
+  const _AddFab({
+    required this.onTap,
+    required this.running,
+    this.isRemove = false,
+  });
 
   final VoidCallback onTap;
   final bool running;
+  final bool isRemove;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.accent,
+      color: isRemove ? Colors.redAccent : AppColors.accent,
       borderRadius: BorderRadius.circular(24),
       elevation: 4,
       shadowColor: Colors.black.withValues(alpha: 0.25),
@@ -787,9 +1019,9 @@ class _AddFab extends StatelessWidget {
                       ),
                     ),
                   )
-                : const Text(
-                    'Add',
-                    style: TextStyle(
+                : Text(
+                    isRemove ? 'Remove' : 'Add',
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,

@@ -6,14 +6,25 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:trip_planner/config/app_theme.dart';
 import 'package:trip_planner/domain/models/place/place.dart';
 import 'package:trip_planner/domain/models/trip/trip.dart';
 import 'package:trip_planner/domain/models/trip/trip_place.dart';
 import 'package:trip_planner/routing/routes.dart';
+import 'package:trip_planner/ui/core/responsive.dart';
 import 'package:trip_planner/ui/core/widgets/skeleton.dart';
+import 'package:trip_planner/ui/place_details/widgets/place_details_screen.dart';
 import 'package:trip_planner/ui/trip_details/view_models/trip_details_viewmodel.dart';
 
+part 'trip_details_screen_mobile.dart';
+part 'trip_details_screen_web.dart';
+
+/// Dispatcher for the Trip Details screen. Owns the view model wiring (search
+/// controller/focus, the map controller, camera refresh on data changes), the
+/// navigation/action callbacks and the edit-trip modal, then picks the layout —
+/// [TripDetailsMobileView] or [TripDetailsWebView] — passing data and callbacks
+/// down. The view files contain only presentation.
 class TripDetailsScreen extends StatefulWidget {
   const TripDetailsScreen({super.key, required this.viewModel});
 
@@ -27,6 +38,15 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
   late final TextEditingController _searchController;
   final FocusNode _searchFocus = FocusNode();
   GoogleMapController? _mapController;
+
+  /// On web, the selected place's details are shown inline over the map (rather
+  /// than navigating to a separate route). Null = no panel open.
+  String? _inlinePlaceId;
+
+  /// On web, clicking the panel's close button can pass through to the map
+  /// platform view and register as a map tap. After closing the panel we ignore
+  /// any map tap that resolves within this short window.
+  DateTime? _suppressMapTapUntil;
 
   @override
   void initState() {
@@ -110,6 +130,53 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     }
   }
 
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+    _refreshCameraToMarkers();
+  }
+
+  void _goToPlace(
+    BuildContext context,
+    TripDetailsViewModel vm,
+    String placeId,
+  ) {
+    context.push(
+      Routes.placeDetailsPath(vm.tripId, placeId, dayIndex: vm.selectedDay),
+    );
+  }
+
+  Future<void> _onMapTap(
+    BuildContext context,
+    TripDetailsViewModel vm,
+    LatLng latLng, {
+    required bool inline,
+  }) async {
+    final placeId = await vm.findPlaceIdAtLocation(
+      latLng.latitude,
+      latLng.longitude,
+    );
+    if (placeId == null) return;
+    if (!context.mounted) return;
+    if (inline) {
+      // Ignore the map tap that coincides with closing the panel (the close
+      // button click passing through to the map platform view).
+      final suppressUntil = _suppressMapTapUntil;
+      if (suppressUntil != null && DateTime.now().isBefore(suppressUntil)) {
+        return;
+      }
+      setState(() => _inlinePlaceId = placeId);
+    } else {
+      _goToPlace(context, vm, placeId);
+    }
+  }
+
+  void _onSearchAdd(TripDetailsViewModel vm, String placeId) {
+    vm.addPlace.execute(placeId);
+    _searchController.clear();
+    vm.clearSearch();
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = widget.viewModel;
@@ -120,77 +187,101 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
         child: ListenableBuilder(
           listenable: vm,
           builder: (context, _) {
-            final trip = vm.trip;
-            return Stack(
-              children: [
-                Column(
-                  children: [
-                    _TopBar(
-                      controller: _searchController,
-                      focusNode: _searchFocus,
-                      onChanged: vm.queueSearch,
-                    ),
-                    Expanded(
-                      child: trip == null
-                          ? const Center(child: CircularProgressIndicator())
-                          : _Body(
-                              vm: vm,
-                              onEditMeta: _openEditSheet,
-                              onMapCreated: (c) {
-                                _mapController = c;
-                                _refreshCameraToMarkers();
-                              },
-                              onMarkerTap: (placeId) => context.push(
-                                Routes.placeDetailsPath(vm.tripId, placeId, dayIndex: vm.selectedDay),
-                              ),
-                              onMapTap: (latLng) async {
-                                final placeId = await vm.findPlaceIdAtLocation(
-                                  latLng.latitude,
-                                  latLng.longitude,
-                                );
-                                if (placeId == null) return;
-                                if (!context.mounted) return;
-                                context.push(
-                                  Routes.placeDetailsPath(vm.tripId, placeId, dayIndex: vm.selectedDay),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-                if (vm.searchResults.isNotEmpty)
-                  Positioned(
-                    top: 70,
-                    left: 16,
-                    right: 16,
-                    child: _SearchResultsOverlay(
-                      results: vm.searchResults,
-                      vm: vm,
-                      onAdd: (placeId) {
-                        vm.addPlace.execute(placeId);
-                        _searchController.clear();
-                        vm.clearSearch();
-                        FocusManager.instance.primaryFocus?.unfocus();
-                      },
-                      onTap: (placeId) {
-                        final tripId = vm.tripId;
-                        context.push(
-                          Routes.placeDetailsPath(
-                            tripId,
-                            placeId,
-                            dayIndex: vm.selectedDay,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
+            if (context.isWebLayout) {
+              return TripDetailsWebView(
+                vm: vm,
+                searchController: _searchController,
+                searchFocus: _searchFocus,
+                onEditMeta: _openEditSheet,
+                onMapCreated: _onMapCreated,
+                onOpenPlace: (placeId) =>
+                    setState(() => _inlinePlaceId = placeId),
+                onMapTap: (latLng) =>
+                    _onMapTap(context, vm, latLng, inline: true),
+                onSearchAdd: (placeId) => _onSearchAdd(vm, placeId),
+                inlinePlaceId: _inlinePlaceId,
+                onCloseInline: () {
+                  _suppressMapTapUntil = DateTime.now().add(
+                    const Duration(milliseconds: 800),
+                  );
+                  setState(() => _inlinePlaceId = null);
+                },
+              );
+            }
+            return TripDetailsMobileView(
+              vm: vm,
+              searchController: _searchController,
+              searchFocus: _searchFocus,
+              onEditMeta: _openEditSheet,
+              onMapCreated: _onMapCreated,
+              onOpenPlace: (placeId) => _goToPlace(context, vm, placeId),
+              onMapTap: (latLng) =>
+                  _onMapTap(context, vm, latLng, inline: false),
+              onSearchAdd: (placeId) => _onSearchAdd(vm, placeId),
             );
           },
         ),
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared presentational components used by both the mobile and web layouts.
+// ---------------------------------------------------------------------------
+
+/// Builds the scrollable content slivers shared by the mobile [_Body] (above the
+/// draggable map sheet) and the web two-pane layout (left pane): the trip meta
+/// card, day tabs, day places and the suggested-places grid. [bottomPadding]
+/// reserves room below the last sliver (for the map sheet on mobile / breathing
+/// room on web).
+List<Widget> _tripDetailSlivers({
+  required TripDetailsViewModel vm,
+  required VoidCallback onEditMeta,
+  required double bottomPadding,
+  required ValueChanged<String> onOpenPlace,
+}) {
+  return [
+    SliverMainAxisGroup(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: _CardPiece(
+              topRounded: true,
+              child: _TripMetaCard(trip: vm.trip!, onEdit: onEditMeta),
+            ),
+          ),
+        ),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _StickyDelegate(
+            backgroundColor: AppColors.cardBackground,
+            horizontalPadding: 16,
+            child: _DayTabs(
+              dayCount: vm.dayCount,
+              selectedDay: vm.selectedDay,
+              onSelect: vm.selectDay,
+            ),
+            height: 60,
+          ),
+        ),
+        _DayPlacesSliver(vm: vm, onOpenPlace: onOpenPlace),
+      ],
+    ),
+    SliverPersistentHeader(
+      pinned: true,
+      delegate: _StickyDelegate(
+        backgroundColor: AppColors.sheetBackground,
+        child: const _SectionHeader(title: 'Suggested places to visit'),
+        height: 44,
+      ),
+    ),
+    SliverPadding(
+      padding: EdgeInsets.fromLTRB(16, 4, 16, bottomPadding),
+      sliver: _SuggestedPlacesSliver(vm: vm, onOpenPlace: onOpenPlace),
+    ),
+  ];
 }
 
 class _TopBar extends StatelessWidget {
@@ -461,100 +552,6 @@ class _AddButton extends StatelessWidget {
   }
 }
 
-class _Body extends StatelessWidget {
-  const _Body({
-    required this.vm,
-    required this.onEditMeta,
-    required this.onMapCreated,
-    required this.onMarkerTap,
-    required this.onMapTap,
-  });
-
-  final TripDetailsViewModel vm;
-  final VoidCallback onEditMeta;
-  final ValueChanged<GoogleMapController> onMapCreated;
-  final ValueChanged<String> onMarkerTap;
-  final ValueChanged<LatLng> onMapTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxHeight = constraints.maxHeight;
-        final mapCollapsedHeight = maxHeight * 0.15;
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: CustomScrollView(
-                physics: const ClampingScrollPhysics(),
-                slivers: [
-                  SliverMainAxisGroup(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: _CardPiece(
-                            topRounded: true,
-                            child: _TripMetaCard(
-                              trip: vm.trip!,
-                              onEdit: onEditMeta,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: _StickyDelegate(
-                          backgroundColor: AppColors.cardBackground,
-                          horizontalPadding: 16,
-                          child: _DayTabs(
-                            dayCount: vm.dayCount,
-                            selectedDay: vm.selectedDay,
-                            onSelect: vm.selectDay,
-                          ),
-                          height: 60,
-                        ),
-                      ),
-                      _DayPlacesSliver(vm: vm),
-                    ],
-                  ),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _StickyDelegate(
-                      backgroundColor: AppColors.sheetBackground,
-                      child: const _SectionHeader(
-                        title: 'Suggested places to visit',
-                      ),
-                      height: 44,
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      4,
-                      16,
-                      mapCollapsedHeight + 24,
-                    ),
-                    sliver: _SuggestedPlacesSliver(vm: vm),
-                  ),
-                ],
-              ),
-            ),
-            _MapSheet(
-              vm: vm,
-              collapsedHeight: mapCollapsedHeight,
-              maxHeight: maxHeight,
-              onMapCreated: onMapCreated,
-              onMarkerTap: onMarkerTap,
-              onMapTap: onMapTap,
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
 class _CardPiece extends StatelessWidget {
   const _CardPiece({
     required this.child,
@@ -612,9 +609,7 @@ class _StickyDelegate extends SliverPersistentHeaderDelegate {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Container(
-        decoration: BoxDecoration(
-          color: backgroundColor,
-        ),
+        decoration: BoxDecoration(color: backgroundColor),
         child: child,
       ),
     );
@@ -794,9 +789,10 @@ class _DayTabs extends StatelessWidget {
 }
 
 class _DayPlacesSliver extends StatelessWidget {
-  const _DayPlacesSliver({required this.vm});
+  const _DayPlacesSliver({required this.vm, required this.onOpenPlace});
 
   final TripDetailsViewModel vm;
+  final ValueChanged<String> onOpenPlace;
 
   @override
   Widget build(BuildContext context) {
@@ -845,13 +841,7 @@ class _DayPlacesSliver extends StatelessWidget {
           final place = places[idx];
           return _DayPlaceRow(
             place: place,
-            onTap: () => context.push(
-              Routes.placeDetailsPath(
-                vm.tripId,
-                place.placeId,
-                dayIndex: vm.selectedDay,
-              ),
-            ),
+            onTap: () => onOpenPlace(place.placeId),
             onRemove: () => vm.removePlace.execute(place.id),
           );
         },
@@ -959,9 +949,10 @@ class _DistanceRow extends StatelessWidget {
 }
 
 class _SuggestedPlacesSliver extends StatelessWidget {
-  const _SuggestedPlacesSliver({required this.vm});
+  const _SuggestedPlacesSliver({required this.vm, required this.onOpenPlace});
 
   final TripDetailsViewModel vm;
+  final ValueChanged<String> onOpenPlace;
 
   @override
   Widget build(BuildContext context) {
@@ -1008,13 +999,7 @@ class _SuggestedPlacesSliver extends StatelessWidget {
           photoUrl: place.photoRefs.isEmpty
               ? null
               : vm.photoUrl(place.photoRefs.first, maxWidthPx: 400),
-          onTap: () => context.push(
-            Routes.placeDetailsPath(
-              vm.tripId,
-              place.id,
-              dayIndex: vm.selectedDay,
-            ),
-          ),
+          onTap: () => onOpenPlace(place.id),
           onAdd: () => vm.addPlace.execute(place.id),
         );
       }, childCount: places.length),
@@ -1135,143 +1120,6 @@ class _SuggestedPlaceCard extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MapSheet extends StatefulWidget {
-  const _MapSheet({
-    required this.vm,
-    required this.collapsedHeight,
-    required this.maxHeight,
-    required this.onMapCreated,
-    required this.onMarkerTap,
-    required this.onMapTap,
-  });
-
-  final TripDetailsViewModel vm;
-  final double collapsedHeight;
-  final double maxHeight;
-  final ValueChanged<GoogleMapController> onMapCreated;
-  final ValueChanged<String> onMarkerTap;
-  final ValueChanged<LatLng> onMapTap;
-
-  @override
-  State<_MapSheet> createState() => _MapSheetState();
-}
-
-class _MapSheetState extends State<_MapSheet> {
-  bool _expanded = false;
-  double? _currentHeight; // non-null only while dragging
-  bool _dragging = false;
-
-  static const _sideMargin = 16.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final collapsed = widget.collapsedHeight;
-    final maxHeight = widget.maxHeight;
-    final snappedHeight = _expanded ? maxHeight : collapsed;
-    final height = _dragging && _currentHeight != null
-        ? _currentHeight!
-        : snappedHeight;
-    final fullScreenFrac = ((height - collapsed) / (maxHeight - collapsed))
-        .clamp(0.0, 1.0);
-    final margin = _sideMargin * (1 - fullScreenFrac);
-    final radius = 24 * (1 - fullScreenFrac);
-
-    return AnimatedPositioned(
-      duration: _dragging ? Duration.zero : const Duration(milliseconds: 240),
-      curve: Curves.easeInOut,
-      bottom: 0,
-      left: margin,
-      right: margin,
-      height: height,
-      child: AnimatedContainer(
-        duration: _dragging ? Duration.zero : const Duration(milliseconds: 240),
-        curve: Curves.easeInOut,
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            _DragHandle(
-              onDragUpdate: (d) {
-                setState(() {
-                  _dragging = true;
-                  final base = _currentHeight ?? snappedHeight;
-                  _currentHeight = (base - d.primaryDelta!).clamp(
-                    collapsed,
-                    maxHeight,
-                  );
-                });
-              },
-              onDragEnd: (_) {
-                final mid = (collapsed + maxHeight) / 2;
-                final h = _currentHeight ?? snappedHeight;
-                setState(() {
-                  _dragging = false;
-                  _expanded = h > mid;
-                  _currentHeight = null;
-                });
-              },
-              onTap: () => setState(() => _expanded = !_expanded),
-            ),
-            Expanded(
-              child: _MapView(
-                vm: widget.vm,
-                onMapCreated: widget.onMapCreated,
-                onMarkerTap: widget.onMarkerTap,
-                onMapTap: widget.onMapTap,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DragHandle extends StatelessWidget {
-  const _DragHandle({
-    required this.onDragUpdate,
-    required this.onDragEnd,
-    required this.onTap,
-  });
-
-  final ValueChanged<DragUpdateDetails> onDragUpdate;
-  final ValueChanged<DragEndDetails> onDragEnd;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onVerticalDragUpdate: onDragUpdate,
-      onVerticalDragEnd: onDragEnd,
-      onTap: onTap,
-      child: SizedBox(
-        height: 28,
-        child: Center(
-          child: Container(
-            width: 44,
-            height: 5,
-            decoration: BoxDecoration(
-              color: AppColors.label.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(3),
-            ),
           ),
         ),
       ),
@@ -1605,7 +1453,3 @@ class _SheetField extends StatelessWidget {
     );
   }
 }
-
-// `Factory` from `dart:ui` is re-exported via material's `Factory`. We use it
-// for the map's gestureRecognizers — empty here because gestures are owned by
-// the DraggableScrollableSheet and the parent scroll view.

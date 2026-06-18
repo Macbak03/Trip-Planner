@@ -47,6 +47,7 @@ app.*.map.json
 
 .claude
 progress.md
+PROGRESS_UI.md
 .env
 ios/Flutter/Env.xcconfig
 

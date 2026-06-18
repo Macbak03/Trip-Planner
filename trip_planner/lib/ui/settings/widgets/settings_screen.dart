@@ -2,9 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:trip_planner/config/app_theme.dart';
 import 'package:trip_planner/routing/routes.dart';
+import 'package:trip_planner/ui/core/responsive.dart';
 import 'package:trip_planner/ui/core/widgets/frosted_circle_button.dart';
 import 'package:trip_planner/ui/settings/view_models/settings_viewmodel.dart';
 
+part 'settings_screen_mobile.dart';
+part 'settings_screen_web.dart';
+
+/// Dispatcher for the Settings screen. Owns the view model wiring (command
+/// listeners, snackbar feedback, navigation, confirmation dialog) and picks the
+/// layout — [SettingsMobileView] or [SettingsWebView] — feeding it plain data
+/// and callbacks. The view files contain only presentation.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.viewModel});
 
@@ -90,41 +98,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           listenable: Listenable.merge([vm.logout, vm.deleteAccount]),
           builder: (context, _) {
             final busy = vm.logout.running || vm.deleteAccount.running;
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      FrostedCircleButton(
-                        icon: Icons.arrow_back,
-                        tooltip: 'Back',
-                        onTap: _goBack,
-                      ),
-                      const SizedBox(width: 14),
-                      const Text(
-                        'Settings',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _AccountCard(email: vm.userEmail),
-                  const SizedBox(height: 16),
-                  _ActionsCard(
-                    busy: busy,
-                    loggingOut: vm.logout.running,
-                    deleting: vm.deleteAccount.running,
-                    onLogout: () => vm.logout.execute(),
-                    onDeleteAccount: _confirmDeleteAccount,
-                  ),
-                ],
-              ),
+            if (context.isWebLayout) {
+              return SettingsWebView(
+                email: vm.userEmail,
+                busy: busy,
+                loggingOut: vm.logout.running,
+                deleting: vm.deleteAccount.running,
+                onBack: _goBack,
+                onLogout: () => vm.logout.execute(),
+                onDeleteAccount: _confirmDeleteAccount,
+              );
+            }
+            return SettingsMobileView(
+              email: vm.userEmail,
+              busy: busy,
+              loggingOut: vm.logout.running,
+              deleting: vm.deleteAccount.running,
+              onBack: _goBack,
+              onLogout: () => vm.logout.execute(),
+              onDeleteAccount: _confirmDeleteAccount,
             );
           },
         ),
@@ -132,6 +124,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Shared presentational components used by both the mobile and web layouts.
+// ---------------------------------------------------------------------------
 
 class _AccountCard extends StatelessWidget {
   const _AccountCard({required this.email});

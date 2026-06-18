@@ -9,10 +9,19 @@ import 'package:trip_planner/config/app_theme.dart';
 import 'package:trip_planner/domain/models/place/place_suggestion.dart';
 import 'package:trip_planner/domain/models/trip/trip.dart';
 import 'package:trip_planner/routing/routes.dart';
+import 'package:trip_planner/ui/core/responsive.dart';
 import 'package:trip_planner/ui/core/widgets/primary_button.dart';
 import 'package:trip_planner/ui/home/view_models/home_viewmodel.dart';
 import 'package:trip_planner/utils/result.dart';
 
+part 'home_screen_mobile.dart';
+part 'home_screen_web.dart';
+
+/// Dispatcher for the Home screen. Owns the form controllers, the
+/// "start planning" listener (which navigates to the created trip) and the date
+/// picker, then picks the layout — [HomeMobileView] or [HomeWebView] — passing
+/// the view model, controllers and callbacks down. The view files contain only
+/// presentation.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.viewModel});
 
@@ -81,45 +90,35 @@ class _HomeScreenState extends State<HomeScreen> {
     final viewModel = widget.viewModel;
     return Scaffold(
       backgroundColor: AppColors.sheetBackground,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            bottom: 350,
-            child: Image.asset(
-              'assets/images/background.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(color: AppColors.authBg),
-            ),
-          ),
-          ListenableBuilder(
-            listenable: viewModel,
-            builder: (context, _) {
-              return SafeArea(
-                bottom: false,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      child: _HeroForm(
-                        viewModel: viewModel,
-                        destinationController: _destinationController,
-                        budgetController: _budgetController,
-                        onPickDates: () => _pickDateRange(context),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Expanded(child: _Sheet(viewModel: viewModel)),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
+      body: ListenableBuilder(
+        listenable: viewModel,
+        builder: (context, _) {
+          if (context.isWebLayout) {
+            return HomeWebView(
+              viewModel: viewModel,
+              destinationController: _destinationController,
+              budgetController: _budgetController,
+              onPickDates: () => _pickDateRange(context),
+            );
+          }
+          return HomeMobileView(
+            viewModel: viewModel,
+            destinationController: _destinationController,
+            budgetController: _budgetController,
+            onPickDates: () => _pickDateRange(context),
+          );
+        },
       ),
     );
   }
 }
 
+// ---------------------------------------------------------------------------
+// Shared presentational components used by both the mobile and web layouts.
+// ---------------------------------------------------------------------------
+
+/// The destination / budget / dates fields plus the "Start planning" button,
+/// rendered as frosted pills over the hero background. Shared by both layouts.
 class _HeroForm extends StatelessWidget {
   const _HeroForm({
     required this.viewModel,
@@ -398,17 +397,15 @@ class _PillField extends StatelessWidget {
                           border: InputBorder.none,
                           hintText: hint,
                           hintStyle: TextStyle(
-                            color: AppColors.textSecondary
-                                .withValues(alpha: 0.8),
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.8,
+                            ),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ],
+              if (trailing != null) ...[const SizedBox(width: 8), trailing!],
             ],
           ),
         ),
@@ -417,123 +414,8 @@ class _PillField extends StatelessWidget {
   }
 }
 
-class _Sheet extends StatelessWidget {
-  const _Sheet({required this.viewModel});
-
-  final HomeViewModel viewModel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: AppColors.sheetBackground,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(32),
-          topRight: Radius.circular(32),
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: CustomScrollView(
-          physics: const ClampingScrollPhysics(),
-          slivers: [
-            SliverMainAxisGroup(
-              slivers: [
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: const _StickyHeaderDelegate(title: 'Planned trips'),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  sliver: SliverToBoxAdapter(
-                    child: _PlannedTripsList(viewModel: viewModel),
-                  ),
-                ),
-              ],
-            ),
-            SliverMainAxisGroup(
-              slivers: [
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: const _StickyHeaderDelegate(
-                    title: 'Suggested countries to visit',
-                  ),
-                ),
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    4,
-                    16,
-                    20 + MediaQuery.of(context).padding.bottom,
-                  ),
-                  sliver: _SuggestedCountriesSliverGrid(viewModel: viewModel),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _StickyHeaderDelegate({required this.title});
-
-  final String title;
-
-  static const double _height = 48;
-
-  @override
-  double get minExtent => _height;
-
-  @override
-  double get maxExtent => _height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Container(
-      color: AppColors.cardBackground,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      alignment: Alignment.centerLeft,
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.label,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(_StickyHeaderDelegate oldDelegate) =>
-      oldDelegate.title != title;
-}
-
+/// Streamed list of the user's planned trips with swipe-to-delete. Shared by
+/// both layouts (mobile sheet and web card).
 class _PlannedTripsList extends StatelessWidget {
   const _PlannedTripsList({required this.viewModel});
 
@@ -593,10 +475,7 @@ class _PlannedTripsList extends StatelessWidget {
               child: Text(
                 'Brak zaplanowanych wycieczek.\nZaplanuj swoją pierwszą podróż powyżej.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.label,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: AppColors.label, fontSize: 14),
               ),
             ),
           );
@@ -716,41 +595,6 @@ class _TripRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SuggestedCountriesSliverGrid extends StatelessWidget {
-  const _SuggestedCountriesSliverGrid({required this.viewModel});
-
-  final HomeViewModel viewModel;
-
-  @override
-  Widget build(BuildContext context) {
-    final countries = viewModel.suggestedCountries;
-    final isLoading =
-        countries.isEmpty && viewModel.loadSuggestedCountries.running;
-    final itemCount = countries.isEmpty ? 8 : countries.length;
-    return SliverGrid(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 18,
-        crossAxisSpacing: 16,
-        childAspectRatio: 1.5,
-      ),
-      delegate: SliverChildBuilderDelegate((context, index) {
-        if (index >= countries.length) {
-          return _SuggestedCountryCard(
-            label: isLoading ? '' : 'Place ${index + 1}',
-            photoUrl: null,
-          );
-        }
-        final place = countries[index];
-        return _SuggestedCountryCard(
-          label: place.displayName,
-          photoUrl: viewModel.suggestedCountryPhotoUrl(place),
-        );
-      }, childCount: itemCount),
     );
   }
 }

@@ -20,10 +20,7 @@ class DefaultFirebaseOptions {
 
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -31,13 +28,24 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return ios;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return android;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
-        return ios;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for linux - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       default:
-        return android;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions are not supported for this platform.',
+        );
     }
   }
 
@@ -56,6 +64,16 @@ class DefaultFirebaseOptions {
     projectId: _env('FIREBASE_IOS_PROJECT_ID'),
     storageBucket: _env('FIREBASE_IOS_STORAGE_BUCKET'),
     iosBundleId: _env('FIREBASE_IOS_IOS_BUNDLE_ID'),
+  );
+
+  static FirebaseOptions get web => FirebaseOptions(
+    apiKey: _env('FIREBASE_WEB_API_KEY'),
+    appId: _env('FIREBASE_WEB_APP_ID'),
+    messagingSenderId: _env('FIREBASE_WEB_MESSAGING_SENDER_ID'),
+    projectId: _env('FIREBASE_WEB_PROJECT_ID'),
+    authDomain: _env('FIREBASE_WEB_AUTH_DOMAIN'),
+    storageBucket: _env('FIREBASE_WEB_STORAGE_BUCKET'),
+    measurementId: _env('FIREBASE_WEB_MEASUREMENT_ID'),
   );
 
 }
