@@ -105,6 +105,19 @@ class AuthRepository {
     }
   }
 
+  // Permanently delete the current account
+  Future<Result<void>> deleteAccount() async {
+    final result = await _firebaseAuthService.deleteAccount();
+    switch (result) {
+      case Ok<void>():
+        _user = null;
+        return Result.ok(null);
+      case Error<void>():
+        _log.warning('Account deletion failed: ${result.error}');
+        return Result.error(result.error);
+    }
+  }
+
   // Reset password
   Future<Result<void>> resetPassword({required String email}) async {
     if (email.isEmpty) {

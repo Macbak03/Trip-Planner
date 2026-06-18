@@ -72,6 +72,42 @@ class FirebaseAuthService {
     }
   }
 
+  // Permanently delete the currently signed-in account
+  Future<Result<void>> deleteAccount() async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) {
+        return Result.error(
+          AuthError(
+            description: 'No signed-in user to delete',
+            type: AuthErrorType.general,
+          ),
+        );
+      }
+      await user.delete();
+      return Result.ok(null);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        return Result.error(
+          AuthError(
+            description:
+                'For security, please log out and sign in again before '
+                'deleting your account.',
+            type: AuthErrorType.general,
+          ),
+        );
+      }
+      return Result.error((_handleAuthException(e)));
+    } catch (e) {
+      return Result.error(
+        (AuthError(
+          description: 'Account deletion failed: ${e.toString()}',
+          type: AuthErrorType.general,
+        )),
+      );
+    }
+  }
+
   // Reset password
   Future<Result<void>> resetPassword({required String email}) async {
     try {

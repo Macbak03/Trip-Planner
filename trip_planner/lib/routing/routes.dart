@@ -1,6 +1,7 @@
 abstract final class Routes {
   static const auth = '/auth';
   static const home = '/home';
+  static const settings = '/settings';
   static const tripDetails = '/trip/:id';
   static const placeDetails = '/trip/:tripId/place/:placeId';
 

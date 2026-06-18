@@ -6,8 +6,11 @@ import 'package:trip_planner/ui/auth/view_models/auth_viewmodel.dart';
 import 'package:trip_planner/ui/auth/widgets/auth_screen.dart';
 import 'package:trip_planner/ui/home/view_models/home_viewmodel.dart';
 import 'package:trip_planner/ui/home/widgets/home_screen.dart';
+import 'package:trip_planner/ui/core/widgets/app_top_bar.dart';
 import 'package:trip_planner/ui/place_details/view_models/place_details_viewmodel.dart';
 import 'package:trip_planner/ui/place_details/widgets/place_details_screen.dart';
+import 'package:trip_planner/ui/settings/view_models/settings_viewmodel.dart';
+import 'package:trip_planner/ui/settings/widgets/settings_screen.dart';
 import 'package:trip_planner/ui/trip_details/view_models/trip_details_viewmodel.dart';
 import 'package:trip_planner/ui/trip_details/widgets/trip_details_screen.dart';
 
@@ -33,6 +36,7 @@ GoRouter router(AuthNotifier authNotifier) => GoRouter(
   },
 
   routes: [
+    // Routes without the universal top bar (auth + settings).
     GoRoute(
       path: Routes.auth,
       builder: (context, state) {
@@ -41,45 +45,59 @@ GoRouter router(AuthNotifier authNotifier) => GoRouter(
       },
     ),
     GoRoute(
-      path: Routes.home,
+      path: Routes.settings,
       builder: (context, state) {
-        final viewModel = HomeViewModel(
-          authRepository: context.read(),
-          tripsRepository: context.read(),
-          placesRepository: context.read(),
-        );
-        return HomeScreen(viewModel: viewModel);
+        final viewModel = SettingsViewModel(authRepository: context.read());
+        return SettingsScreen(viewModel: viewModel);
       },
     ),
-    GoRoute(
-      path: Routes.tripDetails,
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        final viewModel = TripDetailsViewModel(
-          tripId: id,
-          tripsRepository: context.read(),
-          placesRepository: context.read(),
-          directionsService: context.read(),
-        );
-        return TripDetailsScreen(viewModel: viewModel);
-      },
-    ),
-    GoRoute(
-      path: Routes.placeDetails,
-      builder: (context, state) {
-        final tripId = state.pathParameters['tripId']!;
-        final placeId = state.pathParameters['placeId']!;
-        final dayStr = state.uri.queryParameters['day'];
-        final day = dayStr == null ? null : int.tryParse(dayStr);
-        final viewModel = PlaceDetailsViewModel(
-          placeId: placeId,
-          tripId: tripId,
-          dayIndex: day,
-          placesRepository: context.read(),
-          tripsRepository: context.read(),
-        );
-        return PlaceDetailsScreen(viewModel: viewModel);
-      },
+
+    // Authenticated content routes wrapped with the universal [AppTopBar].
+    ShellRoute(
+      builder: (context, state, child) => AppShell(child: child),
+      routes: [
+        GoRoute(
+          path: Routes.home,
+          builder: (context, state) {
+            final viewModel = HomeViewModel(
+              authRepository: context.read(),
+              tripsRepository: context.read(),
+              placesRepository: context.read(),
+            );
+            return HomeScreen(viewModel: viewModel);
+          },
+        ),
+        GoRoute(
+          path: Routes.tripDetails,
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final viewModel = TripDetailsViewModel(
+              tripId: id,
+              tripsRepository: context.read(),
+              placesRepository: context.read(),
+              directionsService: context.read(),
+            );
+            return TripDetailsScreen(viewModel: viewModel);
+          },
+        ),
+        GoRoute(
+          path: Routes.placeDetails,
+          builder: (context, state) {
+            final tripId = state.pathParameters['tripId']!;
+            final placeId = state.pathParameters['placeId']!;
+            final dayStr = state.uri.queryParameters['day'];
+            final day = dayStr == null ? null : int.tryParse(dayStr);
+            final viewModel = PlaceDetailsViewModel(
+              placeId: placeId,
+              tripId: tripId,
+              dayIndex: day,
+              placesRepository: context.read(),
+              tripsRepository: context.read(),
+            );
+            return PlaceDetailsScreen(viewModel: viewModel);
+          },
+        ),
+      ],
     ),
   ],
 );
